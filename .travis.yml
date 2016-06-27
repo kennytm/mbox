@@ -1,0 +1,52 @@
+language: rust
+sudo: false
+
+addons:
+    apt:
+        packages:
+            - libcurl4-openssl-dev
+            - libelf-dev
+            - libdw-dev
+            - binutils-dev
+            - gcc-multilib
+
+os:
+    - linux
+    - osx
+
+rust:
+    - 1.9.0
+    - nightly
+
+env:
+    matrix:
+        - ARCH=x86_64
+        - ARCH=i686
+
+matrix:
+    allow_failures:
+        - env: ARCH=i686
+          rust: nightly
+        # Note: nightly-i686 keeps failing, it seems that travis's nightly is outdated.
+
+install:
+    - if [ "$TRAVIS_OS_NAME" = 'linux' ]; then OS=unknown-linux-gnu; else OS=apple-darwin; fi
+    - SYSROOT=$(rustc --print sysroot)
+    - export HOST=$ARCH-$OS
+    - |
+        if [ ! -d "$SYSROOT/lib/rustlib/$HOST" ]; then
+            curl -SfLO "https://static.rust-lang.org/dist/rust-$TRAVIS_RUST_VERSION-$HOST.tar.gz" &&
+            tar xf "rust-$TRAVIS_RUST_VERSION-$HOST.tar.gz" "rust-$TRAVIS_RUST_VERSION-$HOST/rust-std-$HOST/lib/rustlib/$HOST" &&
+            mv "rust-$TRAVIS_RUST_VERSION-$HOST/rust-std-$HOST/lib/rustlib/$HOST" "$SYSROOT/lib/rustlib"
+        fi
+
+script:
+    - cargo build --target "$HOST"
+    - cargo test --target "$HOST"
+
+after_success:
+    - export PATH=$HOME/.cargo/bin:$HOME/.local/bin:$PATH
+    - cargo install cargo-kcov
+    - cargo kcov --print-install-kcov-sh | bash
+    - cargo kcov --target "$HOST" --coveralls -- --verify
+
