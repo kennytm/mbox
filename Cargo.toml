@@ -1,0 +1,23 @@
+[package]
+name = "mbox"
+version = "0.1.0"
+authors = ["kennytm <kennytm@gmail.com>"]
+build = "build.rs"
+license = "MIT"
+keywords = ["malloc", "free", "ffi", "box", "cstr", "cstring"]
+description = """malloc-based box.
+
+Supports wrapping pointers or null-terminated strings returned from malloc as a Rust type, which
+will be free'd on drop.
+"""
+
+[dependencies]
+libc = "0.2.12"
+
+[build-dependencies]
+rustc_version = "0.1.7"
+semver = "0.1.20" # rustc_version doesn't use the latest semver (0.2.3) ಠ_ಠ
+
+[features]
+no-std = []
+
