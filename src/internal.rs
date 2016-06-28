@@ -1,6 +1,9 @@
-use libc::{c_void, malloc, realloc, free};
+use libc::{c_void, realloc, free};
+#[cfg(windows)] use libc::malloc;
+#[cfg(all(not(windows), target_os="android"))] use libc::memalign;
+#[cfg(all(not(windows), not(target_os="android")))] use libc::posix_memalign;
 
-use std::mem::size_of;
+use std::mem::{size_of, align_of};
 
 #[cfg(all(test, not(feature="no-std")))] use std::rc::Rc;
 #[cfg(all(test, not(feature="no-std")))] use std::cell::Cell;
@@ -11,14 +14,15 @@ use std::mem::size_of;
 #[cfg(stable_channel)] use std::marker::PhantomData;
 #[cfg(stable_channel)] use std::ops::Deref;
 
+#[cfg(all(not(windows), not(target_os="android")))] use std::cmp::max;
+#[cfg(all(not(windows), not(target_os="android")))] use std::ptr::null_mut;
+
 /// A pointer indicating the parent structure embedding it has been dropped.
 #[cfg(all(stable_channel, target_pointer_width="64"))] pub const POST_DROP_USIZE: usize = 0x1d1d1d1d1d1d1d1d;
 #[cfg(all(stable_channel, target_pointer_width="32"))] pub const POST_DROP_USIZE: usize = 0x1d1d1d1d;
 #[cfg(all(stable_channel, target_pointer_width="16"))] pub const POST_DROP_USIZE: usize = 0x1d1d;
 
-/// An arbitrary non-zero pointer is not allocated through `malloc`. This is the pointer used for
-/// zero-sized types.
-pub const NON_MALLOC_PTR: *mut c_void = 1 as *mut c_void;
+//{{{ Unique --------------------------------------------------------------------------------------
 
 /// Same as `std::ptr::Unique`, but provides a close-enough representation on stable channel.
 #[cfg(stable_channel)]
@@ -51,13 +55,39 @@ impl<T: ?Sized> Deref for Unique<T> {
     }
 }
 
+//}}}
+
+//{{{ gen_malloc ----------------------------------------------------------------------------------
+
+/// An arbitrary non-zero pointer is not allocated through `malloc`. This is the pointer used for
+/// zero-sized types.
+pub const NON_MALLOC_PTR: *mut c_void = 1 as *mut c_void;
+
+#[cfg(windows)]
+unsafe fn malloc_aligned(size: usize, _align: usize) -> *mut c_void {
+    malloc(size)
+}
+
+#[cfg(all(not(windows), target_os="android"))]
+unsafe fn malloc_aligned(size: usize, align: usize) -> *mut c_void {
+    memalign(align, size)
+}
+
+#[cfg(all(not(windows), not(target_os="android")))]
+unsafe fn malloc_aligned(size: usize, align: usize) -> *mut c_void {
+    let mut result = null_mut();
+    let align = max(align, size_of::<*mut ()>());
+    posix_memalign(&mut result, align, size);
+    result
+}
+
 /// Generic malloc function.
 pub unsafe fn gen_malloc<T>(count: usize) -> *mut T {
     if size_of::<T>() == 0 || count == 0 {
         NON_MALLOC_PTR as *mut T
     } else {
         let requested_size = count.checked_mul(size_of::<T>()).expect("memory overflow");
-        malloc(requested_size) as *mut T
+        malloc_aligned(requested_size, align_of::<T>()) as *mut T
     }
 }
 
@@ -83,6 +113,10 @@ pub unsafe fn gen_realloc<T>(ptr: *mut T, new_count: usize) -> *mut T {
         realloc(ptr as *mut c_void, requested_size) as *mut T
     }
 }
+
+//}}}
+
+//{{{ Drop counter --------------------------------------------------------------------------------
 
 /// A test structure to count how many times the value has been dropped.
 #[cfg(test)]
@@ -139,6 +173,7 @@ impl Drop for DropCounter {
     }
 }
 
+#[doc(hidden)]
 #[cfg(all(test, feature="no-std"))]
 pub trait GetExt {
     fn get(&self) -> usize;
@@ -151,3 +186,20 @@ impl GetExt for *mut usize {
     }
 }
 
+//}}}
+
+//{{{ Panic-on-clone ------------------------------------------------------------------------------
+
+/// A test structure which panics when it is cloned.
+#[cfg(test)]
+#[derive(Default)]
+pub struct PanicOnClone(u8);
+
+#[cfg(test)]
+impl Clone for PanicOnClone {
+    fn clone(&self) -> Self {
+        panic!("panic on clone");
+    }
+}
+
+//}}}

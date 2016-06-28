@@ -14,13 +14,14 @@ use std::iter::{FromIterator, IntoIterator, DoubleEndedIterator};
 
 use internal::{Unique, gen_malloc, gen_realloc, gen_free};
 
-#[cfg(test)] use std::iter::repeat;
+#[cfg(test)] use std::iter::{repeat, once};
 #[cfg(test)] use std::mem::size_of;
-#[cfg(test)] use internal::DropCounter;
+#[cfg(test)] use internal::{DropCounter, PanicOnClone};
 #[cfg(all(test, feature="no-std"))] use internal::GetExt;
 
 #[cfg(nightly_channel)] use std::marker::Unsize;
 #[cfg(nightly_channel)] use std::ops::CoerceUnsized;
+#[cfg(nightly_channel)] use placer::MALLOC;
 
 use free::Free;
 
@@ -176,17 +177,25 @@ impl<T> From<T> for MBox<T> {
 }
 
 impl<T: Clone> Clone for MBox<T> {
+    #[cfg(stable_channel)]
     fn clone(&self) -> MBox<T> {
         let value: &T = self;
         MBox::new(value.clone())
     }
 
+    #[cfg(nightly_channel)]
+    fn clone(&self) -> MBox<T> {
+        let value: &T = self;
+        MALLOC <- value.clone()
+    }
+
     fn clone_from(&mut self, source: &Self) {
         let ptr = self.as_mut_ptr();
         let src: &T = source;
+        let clone = src.clone();
         unsafe {
             drop_in_place(ptr);
-            write(ptr, src.clone());
+            write(ptr, clone);
         }
     }
 }
@@ -276,7 +285,7 @@ fn test_no_drop_flag() {
 #[cfg(not(feature="no-std"))]
 #[test]
 fn test_format() {
-    let mut a = MBox::new(3u64);
+    let a = MBox::new(3u64);
     assert_eq!(format!("{:p}", a), format!("{:p}", a.as_ptr()));
     assert_eq!(format!("{}", a), "3");
     assert_eq!(format!("{:?}", a), "3");
@@ -685,6 +694,21 @@ fn test_zst_slice() {
     slice.into_iter();
 }
 
+#[test]
+#[should_panic="panic on clone"]
+fn test_panic_during_clone() {
+    let mbox = MBox::<PanicOnClone>::default();
+    mbox.clone();
+}
+
+#[test]
+#[should_panic="panic on clone"]
+fn test_panic_during_clone_from() {
+    let mut mbox = MBox::<PanicOnClone>::default();
+    let other = MBox::default();
+    mbox.clone_from(&other);
+}
+
 //}}}
 
 //{{{ UTF-8 String --------------------------------------------------------------------------------
@@ -780,6 +804,13 @@ fn test_non_utf8() {
 #[test]
 fn test_default_str() {
     assert_eq!(MBox::<str>::default(), MBox::from_str(""));
+}
+
+#[test]
+#[should_panic="panic on clone"]
+fn test_panic_on_clone_slice() {
+    let mbox: MBox<[PanicOnClone]> = once(PanicOnClone::default()).collect();
+    mbox.clone();
 }
 
 //}}}
