@@ -11,6 +11,7 @@ use std::ptr::{null, null_mut, write, copy_nonoverlapping};
 use std::convert::{AsRef, AsMut};
 use std::borrow::{Borrow, BorrowMut};
 use std::iter::once;
+use std::hash::{Hash, Hasher};
 
 use internal::gen_malloc;
 use mbox::MBox;
@@ -54,11 +55,11 @@ macro_rules! impl_zero_for_sentinel {
 impl_zero_for_sentinel!(u8 i8 u16 i16 u32 i32 u64 i64 usize isize);
 
 /// A `malloc`-backed array with an explicit sentinel at the end.
-#[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Debug, Hash)]
+#[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Debug)]
 pub struct MArray<T: Sentinel>(MBox<[T]>);
 
 /// A `malloc`-backed null-terminated string (similar to `CString`).
-#[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Debug, Hash)]
+#[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Debug)]
 pub struct MString(MBox<str>);
 
 impl<T: Sentinel> MArray<T> {
@@ -179,6 +180,18 @@ impl<T: Sentinel> DerefMut for MArray<T> {
         let actual_len = self.0.len() - 1;
         &mut self.0[.. actual_len]
 
+    }
+}
+
+impl Hash for MString {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.deref().hash(state);
+    }
+}
+
+impl<T: Sentinel + Hash> Hash for MArray<T> {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.deref().hash(state);
     }
 }
 
@@ -385,5 +398,33 @@ fn test_default_array() {
 fn test_default_string() {
     let string = MString::default();
     assert_eq!(string.into_mbox_with_sentinel(), MBox::from_str("\0"));
+}
+
+#[test]
+fn test_hash_string() {
+    use std::collections::HashSet;
+
+    let mut hs: HashSet<MString> = HashSet::new();
+    hs.insert(MString::from_str("a"));
+    hs.insert(MString::from_str("bcd"));
+
+    let hs = hs;
+    assert!(hs.contains("bcd"));
+    assert!(!hs.contains("ef"));
+    assert!(hs.contains("a"));
+}
+
+#[test]
+fn test_hash_array() {
+    use std::collections::HashSet;
+
+    let mut hs: HashSet<MArray<u8>> = HashSet::new();
+    hs.insert(MArray::from_slice(b"a"));
+    hs.insert(MArray::from_slice(b"bcd"));
+
+    let hs = hs;
+    assert!(hs.contains(&b"bcd"[..]));
+    assert!(!hs.contains(&b"ef"[..]));
+    assert!(hs.contains(&b"a"[..]));
 }
 

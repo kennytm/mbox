@@ -1,6 +1,6 @@
 [package]
 name = "mbox"
-version = "0.1.0"
+version = "0.1.1"
 authors = ["kennytm <kennytm@gmail.com>"]
 license = "MIT"
 keywords = ["malloc", "free", "ffi", "box", "cstr"]
@@ -16,7 +16,7 @@ build = "build.rs"
 exclude = [".travis.yml", "appveyor.yml", "appveyor.bat", ".gitignore", ".gitattributes"]
 
 [dependencies]
-libc = "0.2.12"
+libc = "0.2.13"
 
 [build-dependencies]
 rustc_version = "0.1.7"
