@@ -278,13 +278,6 @@ impl AsRef<CStr> for MString {
     }
 }
 
-#[cfg(not(feature="no-std"))]
-impl Borrow<CStr> for MString {
-    fn borrow(&self) -> &CStr {
-        self.as_c_str()
-    }
-}
-
 #[test]
 fn test_array() {
     unsafe {
