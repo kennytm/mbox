@@ -9,18 +9,12 @@ use std::mem::{size_of, align_of};
 #[cfg(all(test, not(feature="no-std")))] use std::cell::Cell;
 
 #[cfg(nightly_channel)] pub use std::ptr::Unique;
-#[cfg(nightly_channel)] pub use std::mem::POST_DROP_USIZE;
 
 #[cfg(stable_channel)] use std::marker::PhantomData;
 #[cfg(stable_channel)] use std::ops::Deref;
 
 #[cfg(all(not(windows), not(target_os="android")))] use std::cmp::max;
 #[cfg(all(not(windows), not(target_os="android")))] use std::ptr::null_mut;
-
-/// A pointer indicating the parent structure embedding it has been dropped.
-#[cfg(all(stable_channel, target_pointer_width="64"))] pub const POST_DROP_USIZE: usize = 0x1d1d1d1d1d1d1d1d;
-#[cfg(all(stable_channel, target_pointer_width="32"))] pub const POST_DROP_USIZE: usize = 0x1d1d1d1d;
-#[cfg(all(stable_channel, target_pointer_width="16"))] pub const POST_DROP_USIZE: usize = 0x1d1d;
 
 //{{{ Unique --------------------------------------------------------------------------------------
 

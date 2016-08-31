@@ -48,7 +48,7 @@
 //!
 //! ```toml
 //! [dependencies]
-//! mbox = { version = "0.1.2", features = ["no-std"] }
+//! mbox = { version = "0.1.3", features = ["no-std"] }
 //! ```
 //!
 //! When `no-std` is activated, you cannot convert an `MString` into a `std::ffi::CStr`, as the
@@ -71,8 +71,6 @@
 
 #![cfg_attr(nightly_channel, feature(specialization,
                                      unique,
-                                     unsafe_no_drop_flag,
-                                     filling_drop,
                                      unsize,
                                      coerce_unsized,
                                      placement_new_protocol,

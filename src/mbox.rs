@@ -28,7 +28,6 @@ use free::Free;
 //{{{ Basic structure -----------------------------------------------------------------------------
 
 /// A malloc-backed box. This structure allows Rust to exchange objects with C without cloning.
-#[cfg_attr(nightly_channel, unsafe_no_drop_flag)]
 pub struct MBox<T: ?Sized + Free>(Unique<T>);
 
 impl<T: ?Sized + Free> MBox<T> {
