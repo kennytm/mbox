@@ -111,7 +111,7 @@ impl<T: ?Sized + Free + Unsize<U>, U: ?Sized + Free> CoerceUnsized<MBox<U>> for 
 
 impl<T: ?Sized + Free> Pointer for MBox<T> {
     fn fmt(&self, formatter: &mut Formatter) -> FormatResult {
-        self.as_ptr().fmt(formatter)
+        Pointer::fmt(&self.as_ptr(), formatter)
     }
 }
 
