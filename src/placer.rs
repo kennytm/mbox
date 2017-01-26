@@ -101,7 +101,8 @@ fn test_in_place() {
 }
 
 #[test]
-#[should_panic="should panic without crash"]
+#[should_panic(expected="should panic without crash")]
+#[allow(unreachable_code)]
 fn test_panic_during_construction() {
     let _: MBox<DropCounter> = MALLOC <- panic!("should panic without crash");
 }

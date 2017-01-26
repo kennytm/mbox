@@ -18,6 +18,7 @@ rust:
     - 1.9.0
     - 1.11.0
     - 1.12.1
+    - 1.14.0
     - nightly
 
 env:
@@ -50,5 +51,5 @@ after_success:
     - export PATH=$HOME/.cargo/bin:$HOME/.local/bin:$PATH
     - cargo install cargo-kcov
     - cargo kcov --print-install-kcov-sh | bash
-    - cargo kcov --target "$HOST" --coveralls -- --verify
+    - cargo kcov --target "$HOST" --coveralls
 

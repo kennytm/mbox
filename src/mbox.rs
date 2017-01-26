@@ -694,14 +694,14 @@ fn test_zst_slice() {
 }
 
 #[test]
-#[should_panic="panic on clone"]
+#[should_panic(expected="panic on clone")]
 fn test_panic_during_clone() {
     let mbox = MBox::<PanicOnClone>::default();
     mbox.clone();
 }
 
 #[test]
-#[should_panic="panic on clone"]
+#[should_panic(expected="panic on clone")]
 fn test_panic_during_clone_from() {
     let mut mbox = MBox::<PanicOnClone>::default();
     let other = MBox::default();
@@ -806,7 +806,7 @@ fn test_default_str() {
 }
 
 #[test]
-#[should_panic="panic on clone"]
+#[should_panic(expected="panic on clone")]
 fn test_panic_on_clone_slice() {
     let mbox: MBox<[PanicOnClone]> = once(PanicOnClone::default()).collect();
     mbox.clone();

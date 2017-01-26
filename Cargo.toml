@@ -1,6 +1,6 @@
 [package]
 name = "mbox"
-version = "0.1.4"
+version = "0.1.5"
 authors = ["kennytm <kennytm@gmail.com>"]
 license = "MIT"
 keywords = ["malloc", "free", "ffi", "box", "cstr"]
@@ -15,8 +15,12 @@ will be free'd on drop.
 build = "build.rs"
 exclude = [".travis.yml", "appveyor.yml", "appveyor.bat", ".gitignore", ".gitattributes"]
 
+[badges]
+travis-ci = { repository = "kennytm/mbox" }
+appveyor = { repository = "kennytm/mbox" }
+
 [dependencies]
-libc = "0.2.17"
+libc = "0.2.20"
 
 [build-dependencies]
 rustc_version = "0.1.7"

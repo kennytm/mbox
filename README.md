@@ -44,7 +44,7 @@ Add this to your Cargo.toml:
 
 ```toml
 [dependencies]
-mbox = "0.1.3"
+mbox = "0.1.5"
 ```
 
 ## Usage
@@ -64,7 +64,7 @@ You may compile `mbox` using the `no-std` feature to not link to `std` (it will 
 
 ```toml
 [dependencies]
-mbox = { version = "0.1.3", features = ["no-std"] }
+mbox = { version = "0.1.5", features = ["no-std"] }
 ```
 
 When `no-std` is activated, you cannot convert an `MString` into a `std::ffi::CStr`, as the
