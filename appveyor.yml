@@ -6,17 +6,17 @@ platform:
 
 environment:
     matrix:
-        - RUST: 1.9.0
-          ABI: msvc
-        - RUST: 1.9.0
-          ABI: gnu
-        - RUST: 1.11.0
-          ABI: msvc
-        - RUST: 1.11.0
-          ABI: gnu
         - RUST: 1.14.0
           ABI: msvc
         - RUST: 1.14.0
+          ABI: gnu
+        - RUST: 1.16.0
+          ABI: msvc
+        - RUST: 1.16.0
+          ABI: gnu
+        - RUST: beta
+          ABI: msvc
+        - RUST: beta
           ABI: gnu
         - RUST: nightly
           ABI: msvc
