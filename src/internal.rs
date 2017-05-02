@@ -5,8 +5,8 @@ use libc::{c_void, realloc, free};
 
 use std::mem::{size_of, align_of};
 
-#[cfg(all(test, not(feature="no-std")))] use std::rc::Rc;
-#[cfg(all(test, not(feature="no-std")))] use std::cell::Cell;
+#[cfg(all(test, feature="std"))] use std::rc::Rc;
+#[cfg(all(test, feature="std"))] use std::cell::Cell;
 
 #[cfg(nightly_channel)] pub use std::ptr::Unique;
 
@@ -115,16 +115,16 @@ pub unsafe fn gen_realloc<T>(ptr: *mut T, new_count: usize) -> *mut T {
 /// A test structure to count how many times the value has been dropped.
 #[cfg(test)]
 #[derive(Clone, Debug, PartialEq, Eq)]
-#[cfg_attr(not(feature="no-std"), derive(Default))]
+#[cfg_attr(feature="std", derive(Default))]
 pub struct DropCounter {
-    #[cfg(not(feature="no-std"))]
+    #[cfg(feature="std")]
     pub counter: Rc<Cell<usize>>,
 
-    #[cfg(feature="no-std")]
+    #[cfg(not(feature="std"))]
     pub counter: *mut usize,
 }
 
-#[cfg(all(test, feature="no-std"))]
+#[cfg(all(test, not(feature="std")))]
 impl Default for DropCounter {
     fn default() -> DropCounter {
         unsafe {
@@ -137,12 +137,12 @@ impl Default for DropCounter {
 
 #[cfg(test)]
 impl DropCounter {
-    #[cfg(not(feature="no-std"))]
+    #[cfg(feature="std")]
     pub fn assert_eq(&self, value: usize) {
         assert_eq!(self.counter.get(), value);
     }
 
-    #[cfg(feature="no-std")]
+    #[cfg(not(feature="std"))]
     pub fn assert_eq(&self, value: usize) {
         unsafe {
             assert_eq!(*self.counter, value);
@@ -152,13 +152,13 @@ impl DropCounter {
 
 #[cfg(test)]
 impl Drop for DropCounter {
-    #[cfg(not(feature="no-std"))]
+    #[cfg(feature="std")]
     fn drop(&mut self) {
         let cell: &Cell<usize> = &self.counter;
         cell.set(cell.get() + 1);
     }
 
-    #[cfg(feature="no-std")]
+    #[cfg(not(feature="std"))]
     fn drop(&mut self) {
         unsafe {
             *self.counter += 1;
@@ -168,12 +168,12 @@ impl Drop for DropCounter {
 }
 
 #[doc(hidden)]
-#[cfg(all(test, feature="no-std"))]
+#[cfg(all(test, not(feature="std")))]
 pub trait GetExt {
     fn get(&self) -> usize;
 }
 
-#[cfg(all(test, feature="no-std"))]
+#[cfg(all(test, not(feature="std")))]
 impl GetExt for *mut usize {
     fn get(&self) -> usize {
         unsafe { **self }

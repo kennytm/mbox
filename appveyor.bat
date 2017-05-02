@@ -44,7 +44,7 @@ CL
 rustc --version
 cargo --version
 
-cargo build
+cargo test --no-default-features
 IF %ERRORLEVEL% NEQ 0 EXIT 1
 
 cargo test

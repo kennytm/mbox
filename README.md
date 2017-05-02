@@ -44,7 +44,7 @@ Add this to your Cargo.toml:
 
 ```toml
 [dependencies]
-mbox = "0.2"
+mbox = "0.3"
 ```
 
 ## Usage
@@ -57,17 +57,17 @@ allocator.
 * `MArray<T>` — A null-terminated array, which can be used to represent e.g. array of C strings
   terminated by a null pointer.
 
-## no-std
+## #![no_std]
 
-You may compile `mbox` using the `no-std` feature to not link to `std` (it will still link to
+You may compile `mbox` and disable the `std` feature to not link to `std` (it will still link to
 `core`.
 
 ```toml
 [dependencies]
-mbox = { version = "0.2", features = ["no-std"] }
+mbox = { version = "0.3", default-features = false }
 ```
 
-When `no-std` is activated, you cannot convert an `MString` into a `std::ffi::CStr`, as the
+When `#![no_std]` is activated, you cannot convert an `MString` into a `std::ffi::CStr`, as the
 type simply does not exist 🙂.
 
 ## Migrating from other crates

@@ -41,17 +41,17 @@
 //! * [`MArray<T>`](sentinel/struct.MArray.html) — A null-terminated array, which can be used to
 //!   represent e.g. array of C strings terminated by a null pointer.
 //!
-//! # no-std
+//! # `#![no_std]`
 //!
-//! You may compile `mbox` using the `no-std` feature to not link to `std` (it will still link to
+//! You may compile `mbox` and disable the `std` feature to not link to `std` (it will still link to
 //! `core`.
 //!
 //! ```toml
 //! [dependencies]
-//! mbox = { version = "0.1.3", features = ["no-std"] }
+//! mbox = { version = "0.3", default-features = false }
 //! ```
 //!
-//! When `no-std` is activated, you cannot convert an `MString` into a `std::ffi::CStr`, as the
+//! When `#![no_std]` is activated, you cannot convert an `MString` into a `std::ffi::CStr`, as the
 //! type simply does not exist 🙂.
 //!
 //! # Migrating from other crates
@@ -77,9 +77,9 @@
                                      placement_in_syntax,
                                      box_syntax))]
 
-#![cfg_attr(feature="no-std", no_std)]
+#![cfg_attr(not(feature="std"), no_std)]
 
-#[cfg(feature="no-std")] extern crate core as std;
+#[cfg(not(feature="std"))] extern crate core as std;
 extern crate libc;
 
 mod internal;

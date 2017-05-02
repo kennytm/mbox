@@ -1,6 +1,6 @@
 [package]
 name = "mbox"
-version = "0.2.0"
+version = "0.3.0"
 authors = ["kennytm <kennytm@gmail.com>"]
 license = "MIT"
 keywords = ["malloc", "free", "ffi", "box", "cstr"]
@@ -24,8 +24,7 @@ libc = "0.2"
 
 [build-dependencies]
 rustc_version = "0.2"
-semver = "0.6"
 
 [features]
-no-std = []
-
+default = ["std"]
+std = []

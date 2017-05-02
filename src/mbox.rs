@@ -17,7 +17,7 @@ use internal::{Unique, gen_malloc, gen_realloc, gen_free};
 #[cfg(test)] use std::iter::{repeat, once};
 #[cfg(test)] use std::mem::size_of;
 #[cfg(test)] use internal::{DropCounter, PanicOnClone};
-#[cfg(all(test, feature="no-std"))] use internal::GetExt;
+#[cfg(all(test, not(feature="std")))] use internal::GetExt;
 
 #[cfg(nightly_channel)] use std::marker::Unsize;
 #[cfg(nightly_channel)] use std::ops::CoerceUnsized;
@@ -281,7 +281,7 @@ fn test_no_drop_flag() {
     }
 }
 
-#[cfg(not(feature="no-std"))]
+#[cfg(feature="std")]
 #[test]
 fn test_format() {
     let a = MBox::new(3u64);
@@ -654,7 +654,7 @@ fn test_into_iterator() {
     counter.assert_eq(19);
 }
 
-#[cfg(not(feature="no-std"))]
+#[cfg(feature="std")]
 #[test]
 fn test_iter_properties() {
     let slice = vec![1, 4, 9, 16, 25].into_iter().collect::<MBox<[_]>>();

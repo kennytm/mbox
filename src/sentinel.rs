@@ -5,7 +5,7 @@ use libc::{strlen, c_char};
 use std::mem::{forget, size_of};
 use std::str::Utf8Error;
 use std::ops::{Deref, DerefMut};
-#[cfg(not(feature="no-std"))] use std::ffi::CStr;
+#[cfg(feature="std")] use std::ffi::CStr;
 use std::default::Default;
 use std::ptr::{null, null_mut, write, copy_nonoverlapping};
 use std::convert::{AsRef, AsMut};
@@ -127,17 +127,10 @@ impl MString {
     }
 
     /// Converts to a C string. This allows users to borrow an MString in FFI code.
-    #[cfg(all(can_use_from_bytes_with_nul_unchecked, not(feature="no-std")))]
+    #[cfg(all(feature="std"))]
     pub fn as_c_str(&self) -> &CStr {
         unsafe {
             CStr::from_bytes_with_nul_unchecked(self.0.as_bytes())
-        }
-    }
-
-    #[cfg(all(not(can_use_from_bytes_with_nul_unchecked), not(feature="no-std")))]
-    pub fn as_c_str(&self) -> &CStr {
-        unsafe {
-            CStr::from_ptr((*self.0).as_ptr() as *const c_char)
         }
     }
 
@@ -271,7 +264,7 @@ impl BorrowMut<str> for MString {
     }
 }
 
-#[cfg(not(feature="no-std"))]
+#[cfg(feature="std")]
 impl AsRef<CStr> for MString {
     fn as_ref(&self) -> &CStr {
         self.as_c_str()
@@ -348,7 +341,7 @@ fn test_non_utf8_string() {
     }
 }
 
-#[cfg(not(feature="no-std"))]
+#[cfg(feature="std")]
 #[test]
 fn test_c_str() {
     unsafe {
@@ -393,6 +386,7 @@ fn test_default_string() {
     assert_eq!(string.into_mbox_with_sentinel(), MBox::from_str("\0"));
 }
 
+#[cfg(feature="std")]
 #[test]
 fn test_hash_string() {
     use std::collections::HashSet;
@@ -407,6 +401,7 @@ fn test_hash_string() {
     assert!(hs.contains("a"));
 }
 
+#[cfg(feature="std")]
 #[test]
 fn test_hash_array() {
     use std::collections::HashSet;

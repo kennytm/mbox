@@ -17,6 +17,7 @@ os:
 rust:
     - 1.14.0
     - 1.16.0
+    - 1.17.0
     - beta
     - nightly
 
@@ -43,7 +44,7 @@ install:
         fi
 
 script:
-    - cargo build --target "$HOST"
+    - cargo test --no-default-features --target "$HOST"
     - cargo test --target "$HOST"
 
 after_success:
