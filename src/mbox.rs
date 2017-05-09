@@ -39,12 +39,12 @@ impl<T: ?Sized + Free> MBox<T> {
 
     /// Obtains the pointer owned by the box.
     pub fn as_ptr(&self) -> *const T {
-        *self.0
+        self.0.as_ptr()
     }
 
     /// Obtains the mutable pointer owned by the box.
     pub fn as_mut_ptr(&mut self) -> *mut T {
-        *self.0
+        self.0.as_ptr()
     }
 }
 

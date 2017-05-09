@@ -11,7 +11,6 @@ use std::mem::{size_of, align_of};
 #[cfg(nightly_channel)] pub use std::ptr::Unique;
 
 #[cfg(stable_channel)] use std::marker::PhantomData;
-#[cfg(stable_channel)] use std::ops::Deref;
 
 #[cfg(all(not(windows), not(target_os="android")))] use std::cmp::max;
 #[cfg(all(not(windows), not(target_os="android")))] use std::ptr::null_mut;
@@ -42,10 +41,9 @@ impl<T: ?Sized> Unique<T> {
 }
 
 #[cfg(stable_channel)]
-impl<T: ?Sized> Deref for Unique<T> {
-    type Target = *mut T;
-    fn deref(&self) -> &*mut T {
-        &self.pointer
+impl<T: ?Sized> Unique<T> {
+    pub fn as_ptr(&self) -> *mut T {
+        self.pointer
     }
 }
 
