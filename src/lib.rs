@@ -81,6 +81,7 @@
 
 #[cfg(not(feature="std"))] extern crate core as std;
 extern crate libc;
+extern crate stable_deref_trait;
 
 mod internal;
 pub mod free;

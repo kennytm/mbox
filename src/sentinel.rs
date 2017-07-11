@@ -1,6 +1,7 @@
 //! Sentinel-terminated types.
 
 use libc::{strlen, c_char};
+use stable_deref_trait::StableDeref;
 
 use std::mem::{forget, size_of};
 use std::str::Utf8Error;
@@ -167,6 +168,9 @@ impl Deref for MString {
 
     }
 }
+
+unsafe impl<T: Sentinel> StableDeref for MArray<T> {}
+unsafe impl StableDeref for MString {}
 
 impl<T: Sentinel> DerefMut for MArray<T> {
     fn deref_mut(&mut self) -> &mut [T] {

@@ -1,6 +1,6 @@
 [package]
 name = "mbox"
-version = "0.3.1"
+version = "0.4.0"
 authors = ["kennytm <kennytm@gmail.com>"]
 license = "MIT"
 keywords = ["malloc", "free", "ffi", "box", "cstr"]
@@ -18,9 +18,13 @@ exclude = [".travis.yml", "appveyor.yml", "appveyor.bat", ".gitignore", ".gitatt
 [badges]
 travis-ci = { repository = "kennytm/mbox" }
 appveyor = { repository = "kennytm/mbox" }
+is-it-maintained-issue-resolution = { repository = "kennytm/mbox" }
+is-it-maintained-open-issues = { repository = "kennytm/mbox" }
+coveralls = { repository = "kennytm/mbox" }
 
 [dependencies]
 libc = "0.2"
+stable_deref_trait = { version = "1.0", default-features = false }
 
 [build-dependencies]
 rustc_version = "0.2"

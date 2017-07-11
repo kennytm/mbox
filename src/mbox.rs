@@ -1,5 +1,7 @@
 //! `malloc`-based Box.
 
+use stable_deref_trait::StableDeref;
+
 use std::mem::forget;
 use std::ptr::{read, write, drop_in_place, copy_nonoverlapping};
 use std::ops::{Deref, DerefMut};
@@ -73,6 +75,8 @@ impl<T: ?Sized + Free> Deref for MBox<T> {
         }
     }
 }
+
+unsafe impl<T: ?Sized + Free> StableDeref for MBox<T> {}
 
 impl<T: ?Sized + Free> DerefMut for MBox<T> {
     fn deref_mut(&mut self) -> &mut T {
