@@ -36,7 +36,7 @@ impl<T: ?Sized + Free> MBox<T> {
     /// Constructs a new malloc-backed box from a pointer allocated by `malloc`. The content of the
     /// pointer must be already initialized.
     pub unsafe fn from_raw(ptr: *mut T) -> MBox<T> {
-        MBox(Unique::new(ptr))
+        MBox(Unique::new_unchecked(ptr))
     }
 
     /// Obtains the pointer owned by the box.

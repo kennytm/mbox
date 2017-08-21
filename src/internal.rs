@@ -32,7 +32,7 @@ unsafe impl<T: Sync + ?Sized> Sync for Unique<T> {}
 
 #[cfg(stable_channel)]
 impl<T: ?Sized> Unique<T> {
-    pub unsafe fn new(ptr: *mut T) -> Unique<T> {
+    pub unsafe fn new_unchecked(ptr: *mut T) -> Unique<T> {
         Unique {
             pointer: ptr,
             marker: PhantomData,
