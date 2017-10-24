@@ -10,13 +10,13 @@ environment:
           ABI: msvc
         - RUST: 1.14.0
           ABI: gnu
-        - RUST: 1.17.0
+        - RUST: 1.19.0
           ABI: msvc
-        - RUST: 1.17.0
+        - RUST: 1.19.0
           ABI: gnu
-        - RUST: 1.19.0
+        - RUST: 1.21.0
           ABI: msvc
-        - RUST: 1.19.0
+        - RUST: 1.21.0
           ABI: gnu
         - RUST: beta
           ABI: msvc
