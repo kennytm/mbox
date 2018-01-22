@@ -14,16 +14,16 @@ addons:
 jobs:
     include:
         - env: ARCH=x86_64
-          rust: 1.21.0
+          rust: stable
           os: linux
         - env: ARCH=i686
-          rust: 1.21.0
+          rust: stable
           os: linux
         - env: ARCH=x86_64
-          rust: 1.21.0
+          rust: stable
           os: osx
         - env: ARCH=i686
-          rust: 1.21.0
+          rust: stable
           os: osx
         - env: ARCH=x86_64
           rust: 1.19.0
