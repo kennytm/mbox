@@ -1,6 +1,6 @@
 [package]
 name = "mbox"
-version = "0.4.1"
+version = "0.4.2"
 authors = ["kennytm <kennytm@gmail.com>"]
 license = "MIT"
 keywords = ["malloc", "free", "ffi", "box", "cstr"]

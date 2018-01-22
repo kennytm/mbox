@@ -70,7 +70,7 @@
 //!   equivalent to `MBox<[T]>` and `CSlice<T>` as `[T]`.
 
 #![cfg_attr(nightly_channel, feature(specialization,
-                                     unique,
+                                     ptr_internals,
                                      unsize,
                                      coerce_unsized,
                                      placement_new_protocol,
