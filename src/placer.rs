@@ -45,7 +45,7 @@ impl<T> Drop for MPlace<T> {
     }
 }
 
-impl<T> Place<T> for MPlace<T> {
+unsafe impl<T> Place<T> for MPlace<T> {
     fn pointer(&mut self) -> *mut T {
         self.0
     }
