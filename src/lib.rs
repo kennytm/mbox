@@ -73,8 +73,6 @@
                                      ptr_internals,
                                      unsize,
                                      coerce_unsized,
-                                     placement_new_protocol,
-                                     placement_in_syntax,
                                      box_syntax))]
 
 #![cfg_attr(not(feature="std"), no_std)]
@@ -87,9 +85,6 @@ mod internal;
 pub mod free;
 pub mod sentinel;
 pub mod mbox;
-#[cfg(nightly_channel)] pub mod placer;
 
 pub use mbox::MBox;
 pub use sentinel::{MArray, MString};
-#[cfg(nightly_channel)] pub use placer::MALLOC;
-

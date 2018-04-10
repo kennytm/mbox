@@ -23,7 +23,6 @@ use internal::{Unique, gen_malloc, gen_realloc, gen_free};
 
 #[cfg(nightly_channel)] use std::marker::Unsize;
 #[cfg(nightly_channel)] use std::ops::CoerceUnsized;
-#[cfg(nightly_channel)] use placer::MALLOC;
 
 use free::Free;
 
@@ -180,16 +179,9 @@ impl<T> From<T> for MBox<T> {
 }
 
 impl<T: Clone> Clone for MBox<T> {
-    #[cfg(stable_channel)]
     fn clone(&self) -> MBox<T> {
         let value: &T = self;
         MBox::new(value.clone())
-    }
-
-    #[cfg(nightly_channel)]
-    fn clone(&self) -> MBox<T> {
-        let value: &T = self;
-        MALLOC <- value.clone()
     }
 
     fn clone_from(&mut self, source: &Self) {
