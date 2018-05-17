@@ -23,7 +23,6 @@ use internal::{Unique, gen_malloc, gen_realloc, gen_free};
 
 #[cfg(nightly_channel)] use std::marker::Unsize;
 #[cfg(nightly_channel)] use std::ops::CoerceUnsized;
-#[cfg(nightly_channel)] use placer::MALLOC;
 
 use free::Free;
 
@@ -180,16 +179,9 @@ impl<T> From<T> for MBox<T> {
 }
 
 impl<T: Clone> Clone for MBox<T> {
-    #[cfg(stable_channel)]
     fn clone(&self) -> MBox<T> {
         let value: &T = self;
         MBox::new(value.clone())
-    }
-
-    #[cfg(nightly_channel)]
-    fn clone(&self) -> MBox<T> {
-        let value: &T = self;
-        MALLOC <- value.clone()
     }
 
     fn clone_from(&mut self, source: &Self) {
@@ -693,7 +685,7 @@ fn test_iter_drop() {
 #[test]
 fn test_zst_slice() {
     let slice = repeat(()).take(7).collect::<MBox<[_]>>();
-    slice.clone();
+    let _ = slice.clone();
     slice.into_iter();
 }
 
@@ -701,7 +693,7 @@ fn test_zst_slice() {
 #[should_panic(expected="panic on clone")]
 fn test_panic_during_clone() {
     let mbox = MBox::<PanicOnClone>::default();
-    mbox.clone();
+    let _ = mbox.clone();
 }
 
 #[test]
@@ -813,7 +805,7 @@ fn test_default_str() {
 #[should_panic(expected="panic on clone")]
 fn test_panic_on_clone_slice() {
     let mbox: MBox<[PanicOnClone]> = once(PanicOnClone::default()).collect();
-    mbox.clone();
+    let _ = mbox.clone();
 }
 
 //}}}

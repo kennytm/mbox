@@ -73,8 +73,6 @@
                                      ptr_internals,
                                      unsize,
                                      coerce_unsized,
-                                     placement_new_protocol,
-                                     placement_in_syntax,
                                      box_syntax))]
 
 #![cfg_attr(not(feature="std"), no_std)]
