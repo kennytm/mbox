@@ -1,16 +1,6 @@
 language: rust
 sudo: false
 
-addons:
-    apt:
-        packages:
-            - libcurl4-openssl-dev
-            - libelf-dev
-            - libdw-dev
-            - binutils-dev
-            - libiberty-dev
-            - gcc-multilib
-
 jobs:
     include:
         - env: ARCH=x86_64
@@ -26,16 +16,10 @@ jobs:
           rust: stable
           os: osx
         - env: ARCH=x86_64
-          rust: 1.19.0
+          rust: 1.32.0
           os: linux
         - env: ARCH=i686
-          rust: 1.19.0
-          os: linux
-        - env: ARCH=x86_64
-          rust: 1.14.0
-          os: linux
-        - env: ARCH=i686
-          rust: 1.14.0
+          rust: 1.32.0
           os: linux
         - env: ARCH=x86_64
           rust: nightly
@@ -58,10 +42,3 @@ install:
 script:
     - cargo test --no-default-features --target "$HOST"
     - cargo test --target "$HOST"
-
-after_success:
-    - export PATH=$HOME/.cargo/bin:$HOME/.local/bin:$PATH
-    - cargo install cargo-kcov
-    - cargo kcov --print-install-kcov-sh | bash
-    - cargo kcov --target "$HOST" --coveralls
-

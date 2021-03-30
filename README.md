@@ -3,7 +3,6 @@
 
 [![Travis (Linux and OS X) Build status](https://travis-ci.org/kennytm/mbox.svg?branch=master)](https://travis-ci.org/kennytm/mbox)
 [![AppVeyor (Windows) Build status](https://ci.appveyor.com/api/projects/status/jvdf7ccag5oe4k69/branch/master?svg=true)](https://ci.appveyor.com/project/kennytm/mbox/branch/master)
-[![Coverage Status](https://coveralls.io/repos/github/kennytm/mbox/badge.svg?branch=master)](https://coveralls.io/github/kennytm/mbox?branch=master)
 [![crates.io](http://meritbadge.herokuapp.com/mbox)](https://crates.io/crates/mbox)
 [![MIT](https://img.shields.io/badge/license-MIT-blue.svg)](./LICENSE.txt)
 
@@ -44,7 +43,7 @@ Add this to your Cargo.toml:
 
 ```toml
 [dependencies]
-mbox = "0.4"
+mbox = "0.6"
 ```
 
 ## Usage
@@ -64,7 +63,7 @@ You may compile `mbox` and disable the `std` feature to not link to `std` (it wi
 
 ```toml
 [dependencies]
-mbox = { version = "0.4", default-features = false }
+mbox = { version = "0.6", default-features = false }
 ```
 
 When `#![no_std]` is activated, you cannot convert an `MString` into a `std::ffi::CStr`, as the
