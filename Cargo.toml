@@ -27,7 +27,7 @@ libc = "0.2"
 stable_deref_trait = { version = "1.0", default-features = false }
 
 [build-dependencies]
-rustc_version = "0.2"
+rustc_version = "0.3"
 
 [features]
 default = ["std"]
