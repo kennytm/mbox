@@ -1,19 +1,28 @@
-use libc::{c_void, realloc, free};
-#[cfg(windows)] use libc::malloc;
-#[cfg(all(not(windows), target_os="android"))] use libc::memalign;
-#[cfg(all(not(windows), not(target_os="android")))] use libc::posix_memalign;
+#[cfg(windows)]
+use libc::malloc;
+#[cfg(all(not(windows), target_os = "android"))]
+use libc::memalign;
+#[cfg(all(not(windows), not(target_os = "android")))]
+use libc::posix_memalign;
+use libc::{c_void, free, realloc};
 
-use std::mem::{size_of, align_of};
+use std::mem::{align_of, size_of};
 
-#[cfg(all(test, feature="std"))] use std::rc::Rc;
-#[cfg(all(test, feature="std"))] use std::cell::Cell;
+#[cfg(all(test, feature = "std"))]
+use std::cell::Cell;
+#[cfg(all(test, feature = "std"))]
+use std::rc::Rc;
 
-#[cfg(nightly_channel)] pub use std::ptr::Unique;
+#[cfg(nightly_channel)]
+pub use std::ptr::Unique;
 
-#[cfg(stable_channel)] use std::marker::PhantomData;
+#[cfg(stable_channel)]
+use std::marker::PhantomData;
 
-#[cfg(all(not(windows), not(target_os="android")))] use std::cmp::max;
-#[cfg(all(not(windows), not(target_os="android")))] use std::ptr::null_mut;
+#[cfg(all(not(windows), not(target_os = "android")))]
+use std::cmp::max;
+#[cfg(all(not(windows), not(target_os = "android")))]
+use std::ptr::null_mut;
 
 //{{{ Unique --------------------------------------------------------------------------------------
 
@@ -60,12 +69,12 @@ unsafe fn malloc_aligned(size: usize, _align: usize) -> *mut c_void {
     malloc(size)
 }
 
-#[cfg(all(not(windows), target_os="android"))]
+#[cfg(all(not(windows), target_os = "android"))]
 unsafe fn malloc_aligned(size: usize, align: usize) -> *mut c_void {
     memalign(align, size)
 }
 
-#[cfg(all(not(windows), not(target_os="android")))]
+#[cfg(all(not(windows), not(target_os = "android")))]
 unsafe fn malloc_aligned(size: usize, align: usize) -> *mut c_void {
     let mut result = null_mut();
     let align = max(align, size_of::<*mut ()>());
@@ -101,7 +110,9 @@ pub unsafe fn gen_realloc<T>(ptr: *mut T, new_count: usize) -> *mut T {
     } else if ptr == NON_MALLOC_PTR as *mut T {
         gen_malloc(new_count)
     } else {
-        let requested_size = new_count.checked_mul(size_of::<T>()).expect("memory overflow");
+        let requested_size = new_count
+            .checked_mul(size_of::<T>())
+            .expect("memory overflow");
         realloc(ptr as *mut c_void, requested_size) as *mut T
     }
 }
@@ -113,16 +124,16 @@ pub unsafe fn gen_realloc<T>(ptr: *mut T, new_count: usize) -> *mut T {
 /// A test structure to count how many times the value has been dropped.
 #[cfg(test)]
 #[derive(Clone, Debug, PartialEq, Eq)]
-#[cfg_attr(feature="std", derive(Default))]
+#[cfg_attr(feature = "std", derive(Default))]
 pub struct DropCounter {
-    #[cfg(feature="std")]
+    #[cfg(feature = "std")]
     pub counter: Rc<Cell<usize>>,
 
-    #[cfg(not(feature="std"))]
+    #[cfg(not(feature = "std"))]
     pub counter: *mut usize,
 }
 
-#[cfg(all(test, not(feature="std")))]
+#[cfg(all(test, not(feature = "std")))]
 impl Default for DropCounter {
     fn default() -> DropCounter {
         unsafe {
@@ -135,12 +146,12 @@ impl Default for DropCounter {
 
 #[cfg(test)]
 impl DropCounter {
-    #[cfg(feature="std")]
+    #[cfg(feature = "std")]
     pub fn assert_eq(&self, value: usize) {
         assert_eq!(self.counter.get(), value);
     }
 
-    #[cfg(not(feature="std"))]
+    #[cfg(not(feature = "std"))]
     pub fn assert_eq(&self, value: usize) {
         unsafe {
             assert_eq!(*self.counter, value);
@@ -150,13 +161,13 @@ impl DropCounter {
 
 #[cfg(test)]
 impl Drop for DropCounter {
-    #[cfg(feature="std")]
+    #[cfg(feature = "std")]
     fn drop(&mut self) {
         let cell: &Cell<usize> = &self.counter;
         cell.set(cell.get() + 1);
     }
 
-    #[cfg(not(feature="std"))]
+    #[cfg(not(feature = "std"))]
     fn drop(&mut self) {
         unsafe {
             *self.counter += 1;
@@ -166,12 +177,12 @@ impl Drop for DropCounter {
 }
 
 #[doc(hidden)]
-#[cfg(all(test, not(feature="std")))]
+#[cfg(all(test, not(feature = "std")))]
 pub trait GetExt {
     fn get(&self) -> usize;
 }
 
-#[cfg(all(test, not(feature="std")))]
+#[cfg(all(test, not(feature = "std")))]
 impl GetExt for *mut usize {
     fn get(&self) -> usize {
         unsafe { **self }

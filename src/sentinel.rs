@@ -1,23 +1,25 @@
 //! Sentinel-terminated types.
 
-use libc::{strlen, c_char};
+use libc::{c_char, strlen};
 use stable_deref_trait::StableDeref;
 
-use std::mem::{forget, size_of};
-use std::str::Utf8Error;
-use std::ops::{Deref, DerefMut};
-#[cfg(feature="std")] use std::ffi::CStr;
-use std::default::Default;
-use std::ptr::{null, null_mut, write, copy_nonoverlapping};
-use std::convert::{AsRef, AsMut};
 use std::borrow::{Borrow, BorrowMut};
-use std::iter::once;
+use std::convert::{AsMut, AsRef};
+use std::default::Default;
+#[cfg(feature = "std")]
+use std::ffi::CStr;
 use std::hash::{Hash, Hasher};
+use std::iter::once;
+use std::mem::{forget, size_of};
+use std::ops::{Deref, DerefMut};
+use std::ptr::{copy_nonoverlapping, null, null_mut, write};
+use std::str::Utf8Error;
 
 use internal::gen_malloc;
 use mbox::MBox;
 
-#[cfg(test)] use internal::DropCounter;
+#[cfg(test)]
+use internal::DropCounter;
 
 /// Implemented for types which has a sentinel value.
 pub trait Sentinel: Eq {
@@ -66,7 +68,10 @@ pub struct MString(MBox<str>);
 impl<T: Sentinel> MArray<T> {
     /// Constructs a new malloc-backed slice from a pointer to the null-terminated array.
     pub unsafe fn from_raw(base: *mut T) -> MArray<T> {
-        assert!(size_of::<T>() != 0, "zero-sized arrays cannot be null-terminated");
+        assert!(
+            size_of::<T>() != 0,
+            "zero-sized arrays cannot be null-terminated"
+        );
         let mut len = 0;
         while *base.offset(len) != T::sentinel() {
             len += 1;
@@ -100,7 +105,10 @@ impl MString {
     /// valid UTF-8.
     pub unsafe fn from_raw_unchecked(base: *mut c_char) -> MString {
         let len = strlen(base);
-        MString(MBox::from_raw_utf8_parts_unchecked(base as *mut u8, len + 1))
+        MString(MBox::from_raw_utf8_parts_unchecked(
+            base as *mut u8,
+            len + 1,
+        ))
     }
 
     /// Constructs a new malloc-backed string from a null-terminated C string. Errors with
@@ -122,17 +130,13 @@ impl MString {
 
     /// Converts into an `MBox` excluding the sentinel.
     pub fn into_mbox(self) -> MBox<str> {
-        unsafe {
-            MBox::from_utf8_unchecked(self.into_bytes().into_mbox())
-        }
+        unsafe { MBox::from_utf8_unchecked(self.into_bytes().into_mbox()) }
     }
 
     /// Converts to a C string. This allows users to borrow an MString in FFI code.
-    #[cfg(all(feature="std"))]
+    #[cfg(all(feature = "std"))]
     pub fn as_c_str(&self) -> &CStr {
-        unsafe {
-            CStr::from_bytes_with_nul_unchecked(self.0.as_bytes())
-        }
+        unsafe { CStr::from_bytes_with_nul_unchecked(self.0.as_bytes()) }
     }
 
     /// Obtains the raw bytes including the sentinel.
@@ -156,7 +160,7 @@ impl<T: Sentinel> Deref for MArray<T> {
     type Target = [T];
     fn deref(&self) -> &[T] {
         let actual_len = self.0.len() - 1;
-        &self.0[.. actual_len]
+        &self.0[..actual_len]
     }
 }
 
@@ -164,8 +168,7 @@ impl Deref for MString {
     type Target = str;
     fn deref(&self) -> &str {
         let actual_len = self.0.len() - 1;
-        &self.0[.. actual_len]
-
+        &self.0[..actual_len]
     }
 }
 
@@ -175,8 +178,7 @@ unsafe impl StableDeref for MString {}
 impl<T: Sentinel> DerefMut for MArray<T> {
     fn deref_mut(&mut self) -> &mut [T] {
         let actual_len = self.0.len() - 1;
-        &mut self.0[.. actual_len]
-
+        &mut self.0[..actual_len]
     }
 }
 
@@ -195,8 +197,7 @@ impl<T: Sentinel + Hash> Hash for MArray<T> {
 impl DerefMut for MString {
     fn deref_mut(&mut self) -> &mut str {
         let actual_len = self.0.len() - 1;
-        &mut self.0[.. actual_len]
-
+        &mut self.0[..actual_len]
     }
 }
 
@@ -268,7 +269,7 @@ impl BorrowMut<str> for MString {
     }
 }
 
-#[cfg(feature="std")]
+#[cfg(feature = "std")]
 impl AsRef<CStr> for MString {
     fn as_ref(&self) -> &CStr {
         self.as_c_str()
@@ -345,7 +346,7 @@ fn test_non_utf8_string() {
     }
 }
 
-#[cfg(feature="std")]
+#[cfg(feature = "std")]
 #[test]
 fn test_c_str() {
     unsafe {
@@ -390,7 +391,7 @@ fn test_default_string() {
     assert_eq!(string.into_mbox_with_sentinel(), MBox::from_str("\0"));
 }
 
-#[cfg(feature="std")]
+#[cfg(feature = "std")]
 #[test]
 fn test_hash_string() {
     use std::collections::HashSet;
@@ -405,7 +406,7 @@ fn test_hash_string() {
     assert!(hs.contains("a"));
 }
 
-#[cfg(feature="std")]
+#[cfg(feature = "std")]
 #[test]
 fn test_hash_array() {
     use std::collections::HashSet;
@@ -419,4 +420,3 @@ fn test_hash_array() {
     assert!(!hs.contains(&b"ef"[..]));
     assert!(hs.contains(&b"a"[..]));
 }
-

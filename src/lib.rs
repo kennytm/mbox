@@ -69,22 +69,21 @@
 //! * [`c_vec`](https://crates.io/crates/c_vec) — When using `free` as the destructor, `CVec<T>` is
 //!   equivalent to `MBox<[T]>` and `CSlice<T>` as `[T]`.
 
-#![cfg_attr(nightly_channel, feature(specialization,
-                                     ptr_internals,
-                                     unsize,
-                                     coerce_unsized,
-                                     box_syntax))]
+#![cfg_attr(
+    nightly_channel,
+    feature(min_specialization, ptr_internals, unsize, coerce_unsized)
+)]
+#![cfg_attr(not(feature = "std"), no_std)]
 
-#![cfg_attr(not(feature="std"), no_std)]
-
-#[cfg(not(feature="std"))] extern crate core as std;
+#[cfg(not(feature = "std"))]
+extern crate core as std;
 extern crate libc;
 extern crate stable_deref_trait;
 
-mod internal;
 pub mod free;
-pub mod sentinel;
+mod internal;
 pub mod mbox;
+pub mod sentinel;
 
 pub use mbox::MBox;
 pub use sentinel::{MArray, MString};

@@ -48,5 +48,3 @@ impl Free for str {
         Free::free(fat_ptr as *mut [u8]);
     }
 }
-
-

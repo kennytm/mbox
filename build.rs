@@ -11,4 +11,3 @@ pub fn main() {
     };
     println!("cargo:rustc-cfg={}_channel", channel);
 }
-

@@ -2,27 +2,33 @@
 
 use stable_deref_trait::StableDeref;
 
-use std::mem::forget;
-use std::ptr::{read, write, drop_in_place, copy_nonoverlapping};
-use std::ops::{Deref, DerefMut};
-use std::convert::{AsRef, AsMut};
 use std::borrow::{Borrow, BorrowMut};
-use std::fmt::{Pointer, Debug, Display, Formatter, Result as FormatResult};
-use std::hash::{Hash, Hasher};
 use std::cmp::{max, Ordering};
+use std::convert::{AsMut, AsRef};
+use std::fmt::{Debug, Display, Formatter, Pointer, Result as FormatResult};
+use std::hash::{Hash, Hasher};
+use std::iter::{DoubleEndedIterator, FromIterator, IntoIterator};
+use std::mem::forget;
+use std::ops::{Deref, DerefMut};
+use std::ptr::{copy_nonoverlapping, drop_in_place, read, write};
 use std::slice::{from_raw_parts, from_raw_parts_mut, Iter, IterMut};
 use std::str::{from_utf8, from_utf8_unchecked, Utf8Error};
-use std::iter::{FromIterator, IntoIterator, DoubleEndedIterator};
 
-use internal::{Unique, gen_malloc, gen_realloc, gen_free};
+use internal::{gen_free, gen_malloc, gen_realloc, Unique};
 
-#[cfg(test)] use std::iter::{repeat, once};
-#[cfg(test)] use std::mem::size_of;
-#[cfg(test)] use internal::{DropCounter, PanicOnClone};
-#[cfg(all(test, not(feature="std")))] use internal::GetExt;
+#[cfg(all(test, not(feature = "std")))]
+use internal::GetExt;
+#[cfg(test)]
+use internal::{DropCounter, PanicOnClone};
+#[cfg(test)]
+use std::iter::{once, repeat};
+#[cfg(test)]
+use std::mem::size_of;
 
-#[cfg(nightly_channel)] use std::marker::Unsize;
-#[cfg(nightly_channel)] use std::ops::CoerceUnsized;
+#[cfg(nightly_channel)]
+use std::marker::Unsize;
+#[cfg(nightly_channel)]
+use std::ops::CoerceUnsized;
 
 use free::Free;
 
@@ -69,9 +75,7 @@ impl<T: ?Sized + Free> Drop for MBox<T> {
 impl<T: ?Sized + Free> Deref for MBox<T> {
     type Target = T;
     fn deref(&self) -> &T {
-        unsafe {
-            &*self.as_ptr()
-        }
+        unsafe { &*self.as_ptr() }
     }
 }
 
@@ -79,9 +83,7 @@ unsafe impl<T: ?Sized + Free> StableDeref for MBox<T> {}
 
 impl<T: ?Sized + Free> DerefMut for MBox<T> {
     fn deref_mut(&mut self) -> &mut T {
-        unsafe {
-            &mut *self.as_mut_ptr()
-        }
+        unsafe { &mut *self.as_mut_ptr() }
     }
 }
 
@@ -142,8 +144,7 @@ impl<U: ?Sized + Free, T: ?Sized + Free + PartialEq<U>> PartialEq<MBox<U>> for M
     }
 }
 
-impl<T: ?Sized + Free + Eq> Eq for MBox<T> {
-}
+impl<T: ?Sized + Free + Eq> Eq for MBox<T> {}
 
 impl<U: ?Sized + Free, T: ?Sized + Free + PartialOrd<U>> PartialOrd<MBox<U>> for MBox<T> {
     fn partial_cmp(&self, other: &MBox<U>) -> Option<Ordering> {
@@ -273,11 +274,14 @@ fn test_no_drop_flag() {
     do_test_for_drop_flag(false, 0);
 
     if cfg!(nightly_channel) {
-        assert_eq!(size_of::<MBox<DropCounter>>(), size_of::<*mut DropCounter>());
+        assert_eq!(
+            size_of::<MBox<DropCounter>>(),
+            size_of::<*mut DropCounter>()
+        );
     }
 }
 
-#[cfg(feature="std")]
+#[cfg(feature = "std")]
 #[test]
 fn test_format() {
     let a = MBox::new(3u64);
@@ -322,7 +326,10 @@ fn test_non_zero() {
     if cfg!(nightly_channel) {
         assert_eq!(size_of::<Option<MBox<u64>>>(), size_of::<MBox<u64>>());
         assert_eq!(size_of::<Option<MBox<()>>>(), size_of::<MBox<()>>());
-        assert_eq!(size_of::<Option<MBox<&'static u64>>>(), size_of::<MBox<&'static u64>>());
+        assert_eq!(
+            size_of::<Option<MBox<&'static u64>>>(),
+            size_of::<MBox<&'static u64>>()
+        );
     }
 }
 
@@ -449,9 +456,7 @@ impl<T> MBox<[T]> {
 
 impl<T> Default for MBox<[T]> {
     fn default() -> Self {
-        unsafe {
-            Self::from_raw_parts(gen_malloc(0), 0)
-        }
+        unsafe { Self::from_raw_parts(gen_malloc(0), 0) }
     }
 }
 
@@ -473,7 +478,7 @@ impl<T: Clone> MBox<[T]> {
 }
 
 impl<T> FromIterator<T> for MBox<[T]> {
-    fn from_iter<I: IntoIterator<Item=T>>(iter: I) -> Self {
+    fn from_iter<I: IntoIterator<Item = T>>(iter: I) -> Self {
         let iter = iter.into_iter();
         let (lower_size, upper_size) = iter.size_hint();
         let initial_capacity = max(upper_size.unwrap_or(lower_size), 1);
@@ -526,7 +531,16 @@ fn test_slice() {
         *slice_content.offset(3) = 8907026173756975745;
         *slice_content.offset(4) = 7378932587879886134;
         let mbox = MBox::from_raw_parts(slice_content, 5);
-        assert_eq!(&mbox as &[u64], &[16458340076686561191, 15635007859502065083, 4845947824042606450, 8907026173756975745, 7378932587879886134]);
+        assert_eq!(
+            &mbox as &[u64],
+            &[
+                16458340076686561191,
+                15635007859502065083,
+                4845947824042606450,
+                8907026173756975745,
+                7378932587879886134
+            ]
+        );
     }
 }
 
@@ -650,7 +664,7 @@ fn test_into_iterator() {
     counter.assert_eq(19);
 }
 
-#[cfg(feature="std")]
+#[cfg(feature = "std")]
 #[test]
 fn test_iter_properties() {
     let slice = vec![1, 4, 9, 16, 25].into_iter().collect::<MBox<[_]>>();
@@ -674,9 +688,15 @@ fn test_iter_drop() {
 
         let mut iter = slice.into_iter();
         counter.assert_eq(1);
-        { iter.next().unwrap().assert_eq(1) };
-        { iter.next().unwrap().assert_eq(2) };
-        { iter.next_back().unwrap().assert_eq(3) };
+        {
+            iter.next().unwrap().assert_eq(1)
+        };
+        {
+            iter.next().unwrap().assert_eq(2)
+        };
+        {
+            iter.next_back().unwrap().assert_eq(3)
+        };
         counter.assert_eq(4);
     }
     counter.assert_eq(19);
@@ -690,14 +710,14 @@ fn test_zst_slice() {
 }
 
 #[test]
-#[should_panic(expected="panic on clone")]
+#[should_panic(expected = "panic on clone")]
 fn test_panic_during_clone() {
     let mbox = MBox::<PanicOnClone>::default();
     let _ = mbox.clone();
 }
 
 #[test]
-#[should_panic(expected="panic on clone")]
+#[should_panic(expected = "panic on clone")]
 fn test_panic_during_clone_from() {
     let mut mbox = MBox::<PanicOnClone>::default();
     let other = MBox::default();
@@ -725,7 +745,7 @@ impl MBox<str> {
     ///
     /// The `malloc`ed size of the pointer must be at least `len`. If the content does not contain
     /// valid UTF-8, this method returns an `Err`.
-    pub unsafe fn from_raw_utf8_parts(value: *mut u8, len: usize) -> Result<MBox<str>, Utf8Error>  {
+    pub unsafe fn from_raw_utf8_parts(value: *mut u8, len: usize) -> Result<MBox<str>, Utf8Error> {
         let bytes = from_raw_parts(value, len);
         let string = from_utf8(bytes)? as *const str as *mut str;
         Ok(Self::from_raw(string))
@@ -733,9 +753,7 @@ impl MBox<str> {
 
     /// Converts the string into raw bytes.
     pub fn into_bytes(self) -> MBox<[u8]> {
-        unsafe {
-            MBox::from_raw(self.into_raw() as *mut [u8])
-        }
+        unsafe { MBox::from_raw(self.into_raw() as *mut [u8]) }
     }
 
     /// Creates a string from raw bytes. The bytes must be valid UTF-8.
@@ -767,9 +785,7 @@ impl MBox<str> {
 
 impl Default for MBox<str> {
     fn default() -> Self {
-        unsafe {
-            Self::from_raw_utf8_parts_unchecked(gen_malloc(0), 0)
-        }
+        unsafe { Self::from_raw_utf8_parts_unchecked(gen_malloc(0), 0) }
     }
 }
 
@@ -802,12 +818,10 @@ fn test_default_str() {
 }
 
 #[test]
-#[should_panic(expected="panic on clone")]
+#[should_panic(expected = "panic on clone")]
 fn test_panic_on_clone_slice() {
     let mbox: MBox<[PanicOnClone]> = once(PanicOnClone::default()).collect();
     let _ = mbox.clone();
 }
 
 //}}}
-
-
