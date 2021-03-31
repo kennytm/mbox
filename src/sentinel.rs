@@ -10,7 +10,6 @@ use std::default::Default;
 use std::ffi::CStr;
 use std::hash::{Hash, Hasher};
 use std::iter::once;
-use std::mem::{forget, size_of};
 use std::ops::{Deref, DerefMut};
 use std::ptr::{copy_nonoverlapping, null, null_mut, write};
 use std::str::Utf8Error;
@@ -23,39 +22,31 @@ use internal::DropCounter;
 
 /// Implemented for types which has a sentinel value.
 pub trait Sentinel: Eq {
-    /// Obtains the sentinel value. This method should return a constant.
-    fn sentinel() -> Self;
+    /// Obtains the sentinel value.
+    const SENTINEL: Self;
 }
 
 impl<T> Sentinel for *const T {
-    fn sentinel() -> Self {
-        null()
-    }
+    const SENTINEL: Self = null();
 }
 
 impl<T> Sentinel for *mut T {
-    fn sentinel() -> Self {
-        null_mut()
-    }
+    const SENTINEL: Self = null_mut();
 }
 
 impl<T: Eq> Sentinel for Option<T> {
-    fn sentinel() -> Self {
-        None
-    }
+    const SENTINEL: Self = None;
 }
 
 macro_rules! impl_zero_for_sentinel {
     ($($ty:ty)+) => {
         $(impl Sentinel for $ty {
-            fn sentinel() -> Self {
-                0
-            }
+            const SENTINEL: Self = 0;
         })+
     }
 }
 
-impl_zero_for_sentinel!(u8 i8 u16 i16 u32 i32 u64 i64 usize isize);
+impl_zero_for_sentinel!(u8 i8 u16 i16 u32 i32 u64 i64 u128 i128 usize isize);
 
 /// A `malloc`-backed array with an explicit sentinel at the end.
 #[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Debug)]
@@ -67,16 +58,19 @@ pub struct MString(MBox<str>);
 
 impl<T: Sentinel> MArray<T> {
     /// Constructs a new malloc-backed slice from a pointer to the null-terminated array.
+    ///
+    /// # Safety
+    ///
+    /// The `ptr` must be allocated via `malloc()`, `calloc()` or similar C functions that is
+    /// expected to be deallocated using `free()`. It must not be null. The content of the pointer
+    /// must be already initialized, and terminated by `T::SENTINEL`. The array's ownership is
+    /// passed into the result, and thus should not be used after this function returns.
     pub unsafe fn from_raw(base: *mut T) -> MArray<T> {
-        assert!(
-            size_of::<T>() != 0,
-            "zero-sized arrays cannot be null-terminated"
-        );
         let mut len = 0;
-        while *base.offset(len) != T::sentinel() {
+        while *base.add(len) != T::SENTINEL {
             len += 1;
         }
-        MArray(MBox::from_raw_parts(base, (len + 1) as usize))
+        MArray(MBox::from_raw_parts(base, len + 1))
     }
 
     /// Converts into an `MBox` including the sentinel.
@@ -85,24 +79,30 @@ impl<T: Sentinel> MArray<T> {
     }
 
     /// Converts into an `MBox` excluding the sentinel.
-    pub fn into_mbox(mut self) -> MBox<[T]> {
-        let ptr = (*self.0).as_mut_ptr();
-        let len = self.0.len() - 1;
-        forget(self);
-        unsafe { MBox::from_raw_parts(ptr, len) }
+    pub fn into_mbox(self) -> MBox<[T]> {
+        let (ptr, len) = self.0.into_raw_parts();
+        unsafe { MBox::from_raw_parts(ptr, len - 1) }
     }
 }
 
 impl<T: Sentinel + Clone> MArray<T> {
     /// Creates a null-terminated array from the clone of a slice.
     pub fn from_slice(slice: &[T]) -> MArray<T> {
-        MArray(slice.iter().cloned().chain(once(T::sentinel())).collect())
+        MArray(slice.iter().cloned().chain(once(T::SENTINEL)).collect())
     }
 }
 
 impl MString {
-    /// Constructs a new malloc-backed string from a null-terminated C string. The string must be
-    /// valid UTF-8.
+    /// Constructs a new malloc-backed string from a null-terminated C string.
+    ///
+    /// # Safety
+    ///
+    /// The `base` must be allocated via `malloc()`, `calloc()` or similar C functions that is
+    /// expected to be deallocated using `free()`. It must not be null. The content of the string
+    /// must be already initialized, and terminated by `'\0'`. The string's ownership is passed into
+    /// the result, and thus should not be used after this function returns.
+    ///
+    /// The string must be valid UTF-8.
     pub unsafe fn from_raw_unchecked(base: *mut c_char) -> MString {
         let len = strlen(base);
         MString(MBox::from_raw_utf8_parts_unchecked(
@@ -113,6 +113,13 @@ impl MString {
 
     /// Constructs a new malloc-backed string from a null-terminated C string. Errors with
     /// `Utf8Error` if the string is not in valid UTF-8.
+    ///
+    /// # Safety
+    ///
+    /// The `base` must be allocated via `malloc()`, `calloc()` or similar C functions that is
+    /// expected to be deallocated using `free()`. It must not be null. The content of the string
+    /// must be already initialized, and terminated by `'\0'`. The string's ownership is passed into
+    /// the result, and thus should not be used after this function returns.
     pub unsafe fn from_raw(base: *mut c_char) -> Result<MString, Utf8Error> {
         let len = strlen(base);
         let mbox = MBox::from_raw_utf8_parts(base as *mut u8, len + 1)?;
@@ -143,14 +150,16 @@ impl MString {
     pub fn as_bytes_with_sentinel(&self) -> &[u8] {
         self.0.as_bytes()
     }
+}
 
+impl From<&str> for MString {
     /// Creates a null-terminated string from the clone of a string.
-    pub fn from_str(string: &str) -> MString {
+    fn from(string: &str) -> MString {
         unsafe {
             let len = string.len();
-            let ptr = gen_malloc(len + 1);
+            let ptr = gen_malloc(len + 1).as_ptr();
             copy_nonoverlapping(string.as_ptr(), ptr, len);
-            *ptr.offset(len as isize) = 0;
+            write(ptr.add(len), 0);
             MString(MBox::from_raw_utf8_parts_unchecked(ptr, len + 1))
         }
     }
@@ -182,12 +191,14 @@ impl<T: Sentinel> DerefMut for MArray<T> {
     }
 }
 
+#[allow(clippy::derive_hash_xor_eq)]
 impl Hash for MString {
     fn hash<H: Hasher>(&self, state: &mut H) {
         self.deref().hash(state);
     }
 }
 
+#[allow(clippy::derive_hash_xor_eq)]
 impl<T: Sentinel + Hash> Hash for MArray<T> {
     fn hash<H: Hasher>(&self, state: &mut H) {
         self.deref().hash(state);
@@ -204,8 +215,8 @@ impl DerefMut for MString {
 impl<T: Sentinel> Default for MArray<T> {
     fn default() -> Self {
         unsafe {
-            let arr = gen_malloc(1);
-            write(arr, T::sentinel());
+            let arr = gen_malloc(1).as_ptr();
+            write(arr, T::SENTINEL);
             MArray(MBox::from_raw_parts(arr, 1))
         }
     }
@@ -214,8 +225,8 @@ impl<T: Sentinel> Default for MArray<T> {
 impl Default for MString {
     fn default() -> Self {
         unsafe {
-            let arr = gen_malloc(1);
-            *arr = 0;
+            let arr = gen_malloc(1).as_ptr();
+            write(arr, 0);
             MString(MBox::from_raw_utf8_parts_unchecked(arr, 1))
         }
     }
@@ -279,7 +290,7 @@ impl AsRef<CStr> for MString {
 #[test]
 fn test_array() {
     unsafe {
-        let src = gen_malloc::<u8>(6);
+        let src = gen_malloc::<u8>(6).as_ptr();
         *src.offset(0) = 56;
         *src.offset(1) = 18;
         *src.offset(2) = 200;
@@ -298,7 +309,7 @@ fn test_array() {
 fn test_array_with_drop() {
     let counter = DropCounter::default();
     unsafe {
-        let src = gen_malloc::<Option<DropCounter>>(3);
+        let src = gen_malloc::<Option<DropCounter>>(3).as_ptr();
         write(src.offset(0), Some(counter.clone()));
         write(src.offset(1), Some(counter.clone()));
         write(src.offset(2), None);
@@ -315,7 +326,7 @@ fn test_array_with_drop() {
 #[test]
 fn test_string() {
     unsafe {
-        let src = gen_malloc::<c_char>(5);
+        let src = gen_malloc::<c_char>(5).as_ptr();
         *src.offset(0) = 0x61;
         *src.offset(1) = -0x19;
         *src.offset(2) = -0x6c;
@@ -330,14 +341,14 @@ fn test_string() {
 #[test]
 fn test_non_utf8_string() {
     unsafe {
-        let src = gen_malloc::<c_char>(2);
+        let src = gen_malloc::<c_char>(2).as_ptr();
         *src.offset(0) = -1;
         *src.offset(1) = 0;
 
         let string = MString::from_raw(src);
         assert!(string.is_err());
 
-        let src2 = gen_malloc::<c_char>(2);
+        let src2 = gen_malloc::<c_char>(2).as_ptr();
         *src2.offset(0) = 1;
         *src2.offset(1) = 0;
 
@@ -350,7 +361,7 @@ fn test_non_utf8_string() {
 #[test]
 fn test_c_str() {
     unsafe {
-        let src = gen_malloc::<c_char>(2);
+        let src = gen_malloc::<c_char>(2).as_ptr();
         *src.offset(0) = 1;
         *src.offset(1) = 0;
         let string = MString::from_raw_unchecked(src);
@@ -370,7 +381,7 @@ fn test_array_into_mbox() {
 
 #[test]
 fn test_string_into_mbox() {
-    let first = MString::from_str("abcde");
+    let first = MString::from("abcde");
     let second = first.clone();
 
     assert_eq!(first.as_bytes(), b"abcde");
@@ -388,7 +399,7 @@ fn test_default_array() {
 #[test]
 fn test_default_string() {
     let string = MString::default();
-    assert_eq!(string.into_mbox_with_sentinel(), MBox::from_str("\0"));
+    assert_eq!(string.into_mbox_with_sentinel(), MBox::<str>::from("\0"));
 }
 
 #[cfg(feature = "std")]
@@ -397,13 +408,17 @@ fn test_hash_string() {
     use std::collections::HashSet;
 
     let mut hs: HashSet<MString> = HashSet::new();
-    hs.insert(MString::from_str("a"));
-    hs.insert(MString::from_str("bcd"));
+    hs.insert(MString::from("a"));
+    hs.insert(MString::from("bcd"));
 
     let hs = hs;
     assert!(hs.contains("bcd"));
     assert!(!hs.contains("ef"));
+    assert!(!hs.contains("bcd\0"));
     assert!(hs.contains("a"));
+    assert!(hs.contains(&MString::from("bcd")));
+    assert!(!hs.contains(&MString::from("ef")));
+    assert!(hs.contains(&MString::from("a")));
 }
 
 #[cfg(feature = "std")]
@@ -418,5 +433,9 @@ fn test_hash_array() {
     let hs = hs;
     assert!(hs.contains(&b"bcd"[..]));
     assert!(!hs.contains(&b"ef"[..]));
+    assert!(!hs.contains(&b"bcd\0"[..]));
     assert!(hs.contains(&b"a"[..]));
+    assert!(hs.contains(&MArray::from_slice(b"bcd")));
+    assert!(!hs.contains(&MArray::from_slice(b"ef")));
+    assert!(hs.contains(&MArray::from_slice(b"a")));
 }

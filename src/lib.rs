@@ -69,10 +69,7 @@
 //! * [`c_vec`](https://crates.io/crates/c_vec) — When using `free` as the destructor, `CVec<T>` is
 //!   equivalent to `MBox<[T]>` and `CSlice<T>` as `[T]`.
 
-#![cfg_attr(
-    nightly_channel,
-    feature(min_specialization, ptr_internals, unsize, coerce_unsized)
-)]
+#![cfg_attr(nightly_channel, feature(min_specialization, unsize, coerce_unsized))]
 #![cfg_attr(not(feature = "std"), no_std)]
 
 #[cfg(not(feature = "std"))]

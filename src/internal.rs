@@ -1,119 +1,134 @@
-#[cfg(windows)]
-use libc::malloc;
-#[cfg(all(not(windows), target_os = "android"))]
-use libc::memalign;
-#[cfg(all(not(windows), not(target_os = "android")))]
-use libc::posix_memalign;
-use libc::{c_void, free, realloc};
+#[cfg(not(feature = "std"))]
+extern crate alloc;
 
+use libc::c_void;
+
+use std::alloc::Layout;
+use std::marker::PhantomData;
 use std::mem::{align_of, size_of};
+use std::ptr::NonNull;
 
-#[cfg(all(test, feature = "std"))]
-use std::cell::Cell;
-#[cfg(all(test, feature = "std"))]
-use std::rc::Rc;
+#[cfg(not(feature = "std"))]
+use self::alloc::alloc::handle_alloc_error;
+#[cfg(feature = "std")]
+use std::alloc::handle_alloc_error;
 
 #[cfg(nightly_channel)]
-pub use std::ptr::Unique;
-
-#[cfg(stable_channel)]
-use std::marker::PhantomData;
-
-#[cfg(all(not(windows), not(target_os = "android")))]
-use std::cmp::max;
-#[cfg(all(not(windows), not(target_os = "android")))]
-use std::ptr::null_mut;
+use std::marker::Unsize;
+#[cfg(nightly_channel)]
+use std::ops::CoerceUnsized;
 
 //{{{ Unique --------------------------------------------------------------------------------------
 
 /// Same as `std::ptr::Unique`, but provides a close-enough representation on stable channel.
-#[cfg(stable_channel)]
 pub struct Unique<T: ?Sized> {
-    pointer: *mut T,
+    pointer: NonNull<T>,
     marker: PhantomData<T>,
 }
 
-#[cfg(stable_channel)]
 unsafe impl<T: Send + ?Sized> Send for Unique<T> {}
 
-#[cfg(stable_channel)]
 unsafe impl<T: Sync + ?Sized> Sync for Unique<T> {}
 
-#[cfg(stable_channel)]
 impl<T: ?Sized> Unique<T> {
-    pub unsafe fn new_unchecked(ptr: *mut T) -> Unique<T> {
-        Unique {
-            pointer: ptr,
+    /// Creates a new raw unique pointer.
+    ///
+    /// # Safety
+    ///
+    /// The `pointer`'s ownership must be transferred into the result. That is,
+    /// it is no longer valid to touch `pointer` and its copies directly after
+    /// calling this function.
+    pub const unsafe fn new(pointer: NonNull<T>) -> Self {
+        Self {
+            pointer,
             marker: PhantomData,
         }
     }
 }
 
-#[cfg(stable_channel)]
 impl<T: ?Sized> Unique<T> {
-    pub fn as_ptr(&self) -> *mut T {
+    pub fn as_non_null_ptr(&self) -> NonNull<T> {
         self.pointer
     }
 }
+
+#[cfg(nightly_channel)]
+impl<T: ?Sized + Unsize<U>, U: ?Sized> CoerceUnsized<Unique<U>> for Unique<T> {}
 
 //}}}
 
 //{{{ gen_malloc ----------------------------------------------------------------------------------
 
-/// An arbitrary non-zero pointer is not allocated through `malloc`. This is the pointer used for
-/// zero-sized types.
-pub const NON_MALLOC_PTR: *mut c_void = 1 as *mut c_void;
-
 #[cfg(windows)]
 unsafe fn malloc_aligned(size: usize, _align: usize) -> *mut c_void {
-    malloc(size)
+    libc::malloc(size)
 }
 
 #[cfg(all(not(windows), target_os = "android"))]
 unsafe fn malloc_aligned(size: usize, align: usize) -> *mut c_void {
-    memalign(align, size)
+    libc::memalign(align, size)
 }
 
 #[cfg(all(not(windows), not(target_os = "android")))]
 unsafe fn malloc_aligned(size: usize, align: usize) -> *mut c_void {
-    let mut result = null_mut();
-    let align = max(align, size_of::<*mut ()>());
-    posix_memalign(&mut result, align, size);
+    let mut result = std::ptr::null_mut();
+    let align = align.max(size_of::<*mut ()>());
+    libc::posix_memalign(&mut result, align, size);
     result
 }
 
 /// Generic malloc function.
-pub unsafe fn gen_malloc<T>(count: usize) -> *mut T {
+pub fn gen_malloc<T>(count: usize) -> NonNull<T> {
     if size_of::<T>() == 0 || count == 0 {
-        NON_MALLOC_PTR as *mut T
+        NonNull::dangling()
     } else {
         let requested_size = count.checked_mul(size_of::<T>()).expect("memory overflow");
-        malloc_aligned(requested_size, align_of::<T>()) as *mut T
+        // SAFETY:
+        //  - allocating should be safe, duh.
+        //  - in the rare case allocation failed, we throw an allocation error, so when we reach
+        //    NonNull::new_unchecked we can be sure the result is not null.
+        unsafe {
+            let res = malloc_aligned(requested_size, align_of::<T>()) as *mut T;
+            if res.is_null() {
+                handle_alloc_error(Layout::new::<T>());
+            }
+            NonNull::new_unchecked(res)
+        }
     }
 }
 
 /// Generic free function.
-pub unsafe fn gen_free<T>(ptr: *mut T) {
-    let p = ptr as *mut c_void;
-    if p != NON_MALLOC_PTR {
-        free(p);
+///
+/// # Safety
+///
+/// The `ptr` must be obtained from `malloc()` or similar C functions.
+pub unsafe fn gen_free<T>(ptr: NonNull<T>) {
+    if ptr != NonNull::dangling() {
+        libc::free(ptr.as_ptr() as *mut c_void);
     }
 }
 
 /// Generic realloc function.
-pub unsafe fn gen_realloc<T>(ptr: *mut T, new_count: usize) -> *mut T {
+///
+/// # Safety
+///
+/// The `ptr` must be obtained from `malloc()` or similar C functions.
+pub unsafe fn gen_realloc<T>(ptr: NonNull<T>, new_count: usize) -> NonNull<T> {
     if size_of::<T>() == 0 {
         ptr
     } else if new_count == 0 {
         gen_free(ptr);
-        NON_MALLOC_PTR as *mut T
-    } else if ptr == NON_MALLOC_PTR as *mut T {
+        NonNull::dangling()
+    } else if ptr == NonNull::dangling() {
         gen_malloc(new_count)
     } else {
-        let requested_size = new_count
-            .checked_mul(size_of::<T>())
-            .expect("memory overflow");
-        realloc(ptr as *mut c_void, requested_size) as *mut T
+        if let Some(requested_size) = new_count.checked_mul(size_of::<T>()) {
+            let res = libc::realloc(ptr.as_ptr() as *mut c_void, requested_size);
+            if !res.is_null() {
+                return NonNull::new_unchecked(res as *mut T);
+            }
+        }
+        handle_alloc_error(Layout::new::<T>());
     }
 }
 
@@ -121,71 +136,84 @@ pub unsafe fn gen_realloc<T>(ptr: *mut T, new_count: usize) -> *mut T {
 
 //{{{ Drop counter --------------------------------------------------------------------------------
 
-/// A test structure to count how many times the value has been dropped.
 #[cfg(test)]
 #[derive(Clone, Debug, PartialEq, Eq)]
 #[cfg_attr(feature = "std", derive(Default))]
-pub struct DropCounter {
+pub(crate) struct SharedCounter {
     #[cfg(feature = "std")]
-    pub counter: Rc<Cell<usize>>,
+    counter: std::rc::Rc<std::cell::Cell<usize>>,
 
+    /// A shared, mutable counter on heap.
     #[cfg(not(feature = "std"))]
-    pub counter: *mut usize,
+    counter: NonNull<usize>,
 }
 
 #[cfg(all(test, not(feature = "std")))]
-impl Default for DropCounter {
-    fn default() -> DropCounter {
+impl Default for SharedCounter {
+    fn default() -> Self {
+        // SAFETY: malloc() returns an uninitialized integer which is then filled in.
         unsafe {
-            let ptr = gen_malloc(1);
-            *ptr = 0;
-            DropCounter { counter: ptr }
+            let counter = gen_malloc(1);
+            std::ptr::write(counter.as_ptr(), 0);
+            Self { counter }
         }
     }
 }
 
 #[cfg(test)]
-impl DropCounter {
-    #[cfg(feature = "std")]
-    pub fn assert_eq(&self, value: usize) {
-        assert_eq!(self.counter.get(), value);
+impl SharedCounter {
+    /// Gets the counter value.
+    pub(crate) fn get(&self) -> usize {
+        #[cfg(feature = "std")]
+        {
+            self.counter.get()
+        }
+        // SAFETY: `self.counter` is malloc()'ed, initialized and never freed.
+        #[cfg(not(feature = "std"))]
+        unsafe {
+            *self.counter.as_ref()
+        }
     }
 
-    #[cfg(not(feature = "std"))]
-    pub fn assert_eq(&self, value: usize) {
-        unsafe {
-            assert_eq!(*self.counter, value);
+    /// Asserts the counter value equals to the input. Panics when different.
+    pub(crate) fn assert_eq(&self, value: usize) {
+        assert_eq!(self.get(), value);
+    }
+
+    /// Increases the counter by 1.
+    fn inc(&self) {
+        #[cfg(feature = "std")]
+        {
+            self.counter.set(self.counter.get() + 1);
         }
+        // SAFETY: `self.counter` is malloc()'ed, initialized and never freed.
+        // Since `SharedCounter` is not Sync nor Send, we are sure the
+        // modification happens in the single thread, so we don't worry about
+        // the interior mutation.
+        #[cfg(not(feature = "std"))]
+        unsafe {
+            *self.counter.as_ptr() += 1;
+        }
+    }
+}
+
+/// A test structure to count how many times the value has been dropped.
+#[cfg(test)]
+#[derive(Clone, Debug, PartialEq, Eq, Default)]
+pub(crate) struct DropCounter(SharedCounter);
+
+#[cfg(test)]
+impl std::ops::Deref for DropCounter {
+    type Target = SharedCounter;
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
 
 #[cfg(test)]
 impl Drop for DropCounter {
-    #[cfg(feature = "std")]
     fn drop(&mut self) {
-        let cell: &Cell<usize> = &self.counter;
-        cell.set(cell.get() + 1);
-    }
-
-    #[cfg(not(feature = "std"))]
-    fn drop(&mut self) {
-        unsafe {
-            *self.counter += 1;
-            // we don't care about the leak in test.
-        }
-    }
-}
-
-#[doc(hidden)]
-#[cfg(all(test, not(feature = "std")))]
-pub trait GetExt {
-    fn get(&self) -> usize;
-}
-
-#[cfg(all(test, not(feature = "std")))]
-impl GetExt for *mut usize {
-    fn get(&self) -> usize {
-        unsafe { **self }
+        self.0.inc();
     }
 }
 
