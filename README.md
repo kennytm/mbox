@@ -1,9 +1,9 @@
 `mbox`: `malloc`-based box
 ==========================
 
-[![Travis (Linux and OS X) Build status](https://travis-ci.org/kennytm/mbox.svg?branch=master)](https://travis-ci.org/kennytm/mbox)
-[![AppVeyor (Windows) Build status](https://ci.appveyor.com/api/projects/status/jvdf7ccag5oe4k69/branch/master?svg=true)](https://ci.appveyor.com/project/kennytm/mbox/branch/master)
-[![crates.io](http://meritbadge.herokuapp.com/mbox)](https://crates.io/crates/mbox)
+[![Crates.io](https://img.shields.io/crates/v/mbox.svg)](https://crates.io/crates/mbox)
+[![docs.rs](https://docs.rs/mbox/badge.svg)](https://docs.rs/mbox)
+[![Build status](https://github.com/kennytm/mbox/workflows/Rust/badge.svg)](https://github.com/kennytm/mbox/actions?query=workflow%3ARust)
 [![MIT](https://img.shields.io/badge/license-MIT-blue.svg)](./LICENSE.txt)
 
 This crate provides structures that wrap pointers returned from `malloc` as a Box, and
@@ -56,7 +56,7 @@ allocator.
 * `MArray<T>` — A null-terminated array, which can be used to represent e.g. array of C strings
   terminated by a null pointer.
 
-## #![no_std]
+## `#![no_std]`
 
 You may compile `mbox` and disable the `std` feature to not link to `std` (it will still link to
 `core`.
