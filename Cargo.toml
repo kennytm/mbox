@@ -13,14 +13,7 @@ will be free'd on drop.
 """
 
 build = "build.rs"
-exclude = [".travis.yml", "appveyor.yml", "appveyor.bat", ".gitignore", ".gitattributes"]
-
-[badges]
-travis-ci = { repository = "kennytm/mbox" }
-appveyor = { repository = "kennytm/mbox" }
-is-it-maintained-issue-resolution = { repository = "kennytm/mbox" }
-is-it-maintained-open-issues = { repository = "kennytm/mbox" }
-coveralls = { repository = "kennytm/mbox" }
+exclude = [".gitignore", ".github"]
 
 [dependencies]
 libc = "0.2"
