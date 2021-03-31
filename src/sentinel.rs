@@ -107,7 +107,7 @@ impl MString {
     /// `Utf8Error` if the string is not in valid UTF-8.
     pub unsafe fn from_raw(base: *mut c_char) -> Result<MString, Utf8Error> {
         let len = strlen(base);
-        let mbox = try!(MBox::from_raw_utf8_parts(base as *mut u8, len + 1));
+        let mbox = MBox::from_raw_utf8_parts(base as *mut u8, len + 1)?;
         Ok(MString(mbox))
     }
 
