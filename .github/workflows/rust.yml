@@ -1,0 +1,52 @@
+name: Rust
+
+on:
+  push:
+    branches:
+      - master
+  pull_request:
+    branches:
+      - master
+
+jobs:
+  stable-test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v2
+      - name: Clippy
+        run: cargo clippy
+      - name: Format
+        run: cargo fmt -- --check
+      - name: Test
+        run: cargo test
+      - name: Test (no-std)
+        run: cargo test --no-default-features
+
+  platform-test:
+    strategy:
+      fail-fast: true
+      matrix:
+        platform:
+          - os: ubuntu-latest
+            rust: 1.32.0
+          - os: ubuntu-latest
+            rust: nightly
+          - os: windows-latest
+            rust: stable
+          - os: macos-latest
+            rust: stable
+    runs-on: ${{ matrix.platform.os }}
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions-rs/toolchain@v1
+        name: Install Rust
+        with:
+          toolchain: ${{ matrix.platform.rust }}
+          profile: minimal
+          default: true
+      - name: Test
+        run: cargo test
+      - name: Test (no-std)
+        run: cargo test --no-default-features
