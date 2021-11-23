@@ -59,8 +59,9 @@
 //! Note that `MBox` does not support custom allocator. If the type requires custom allocation,
 //! `MBox` cannot serve you.
 //!
-//! * [`malloc_buf`](https://crates.io/crates/malloc_buf) — `MallocBuffer<T>` is equivalent to
-//!   `MBox<[T]>`. Note however we will not check for null pointers.
+//! * [`malloc_buf`](https://crates.io/crates/malloc_buf) — `Malloc<T>` is equivalent to `MBox<T>`.
+//!   Note however that `MBox<[T]>::from_raw_parts` will not allow null, 0-length buffers; use a
+//!   dangling pointer instead.
 //!
 //! * [`cbox`](https://crates.io/crates/cbox) — When not using a custom `DisposeRef`, the
 //!   `CSemiBox<'static, T>` type is equivalent to `MBox<T>`, and `CBox<T>` is equivalent to
