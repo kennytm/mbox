@@ -72,6 +72,10 @@
 #![cfg_attr(nightly_channel, feature(min_specialization, unsize, coerce_unsized))]
 #![cfg_attr(not(feature = "std"), no_std)]
 
+#[cfg(doctest)]
+#[doc = include_str!("../README.md")]
+extern "C" {}
+
 #[cfg(not(feature = "std"))]
 extern crate core as std;
 extern crate libc;
