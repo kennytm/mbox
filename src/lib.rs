@@ -77,10 +77,14 @@ extern crate core as std;
 extern crate libc;
 extern crate stable_deref_trait;
 
+#[doc(hidden)] // TODO: Remove `pub` as breaking change
 pub mod free;
 mod internal;
+#[doc(hidden)] // TODO: Remove `pub` as breaking change
 pub mod mbox;
+#[doc(hidden)] // TODO: Remove `pub` as breaking change
 pub mod sentinel;
 
-pub use mbox::MBox;
-pub use sentinel::{MArray, MString};
+pub use self::free::Free;
+pub use self::mbox::{MBox, MSliceIntoIter};
+pub use self::sentinel::{MArray, MString, Sentinel};

@@ -1,9 +1,9 @@
-//! Trait to instruct how to properly drop and free pointers.
-
 use std::ptr::{drop_in_place, NonNull};
 
 use internal::gen_free;
 
+/// Trait to instruct how to properly drop and free pointers.
+///
 /// Implemented for pointers which can be freed.
 pub trait Free {
     /// Drops the content pointed by this pointer and frees it.
