@@ -84,3 +84,10 @@ Note that `MBox` does not support custom allocator. If the type requires custom 
 
 * [`c_vec`](https://crates.io/crates/c_vec) — When using `free` as the destructor, `CVec<T>` is
   equivalent to `MBox<[T]>` and `CSlice<T>` as `[T]`.
+
+* [`malloced`](https://crates.io/crates/malloced) — `Malloced<T>` is equivalent to `MBox<T>`.
+  Note however that `mbox` depends on `libc` (more stable, but also longer build-time) and
+  doesn't support `dyn Any` downcasting.
+
+* [`malloc-array`](https://crates.io/crates/malloc-array) — `HeapArray<T>` is similar to
+  `MBox<T>`, but this crate focuses more on raw memory management.
