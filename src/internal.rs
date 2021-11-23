@@ -21,7 +21,7 @@ use std::ops::CoerceUnsized;
 //{{{ Unique --------------------------------------------------------------------------------------
 
 /// Same as `std::ptr::Unique`, but provides a close-enough representation on stable channel.
-pub struct Unique<T: ?Sized> {
+pub(crate) struct Unique<T: ?Sized> {
     pointer: NonNull<T>,
     marker: PhantomData<T>,
 }
@@ -38,7 +38,7 @@ impl<T: ?Sized> Unique<T> {
     /// The `pointer`'s ownership must be transferred into the result. That is,
     /// it is no longer valid to touch `pointer` and its copies directly after
     /// calling this function.
-    pub const unsafe fn new(pointer: NonNull<T>) -> Self {
+    pub(crate) const unsafe fn new(pointer: NonNull<T>) -> Self {
         Self {
             pointer,
             marker: PhantomData,
@@ -47,7 +47,7 @@ impl<T: ?Sized> Unique<T> {
 }
 
 impl<T: ?Sized> Unique<T> {
-    pub fn as_non_null_ptr(&self) -> NonNull<T> {
+    pub(crate) fn as_non_null_ptr(&self) -> NonNull<T> {
         self.pointer
     }
 }
@@ -78,7 +78,7 @@ unsafe fn malloc_aligned(size: usize, align: usize) -> *mut c_void {
 }
 
 /// Generic malloc function.
-pub fn gen_malloc<T>(count: usize) -> NonNull<T> {
+pub(crate) fn gen_malloc<T>(count: usize) -> NonNull<T> {
     if size_of::<T>() == 0 || count == 0 {
         NonNull::dangling()
     } else {
@@ -102,7 +102,7 @@ pub fn gen_malloc<T>(count: usize) -> NonNull<T> {
 /// # Safety
 ///
 /// The `ptr` must be obtained from `malloc()` or similar C functions.
-pub unsafe fn gen_free<T>(ptr: NonNull<T>) {
+pub(crate) unsafe fn gen_free<T>(ptr: NonNull<T>) {
     if ptr != NonNull::dangling() {
         libc::free(ptr.as_ptr() as *mut c_void);
     }
@@ -113,7 +113,7 @@ pub unsafe fn gen_free<T>(ptr: NonNull<T>) {
 /// # Safety
 ///
 /// The `ptr` must be obtained from `malloc()` or similar C functions.
-pub unsafe fn gen_realloc<T>(ptr: NonNull<T>, new_count: usize) -> NonNull<T> {
+pub(crate) unsafe fn gen_realloc<T>(ptr: NonNull<T>, new_count: usize) -> NonNull<T> {
     if size_of::<T>() == 0 {
         ptr
     } else if new_count == 0 {
@@ -224,7 +224,7 @@ impl Drop for DropCounter {
 /// A test structure which panics when it is cloned.
 #[cfg(test)]
 #[derive(Default)]
-pub struct PanicOnClone(u8);
+pub(crate) struct PanicOnClone(u8);
 
 #[cfg(test)]
 impl Clone for PanicOnClone {

@@ -126,6 +126,7 @@ impl MString {
         Ok(MString(mbox))
     }
 
+    /// Convert the string into an array containing null-terminated bytes.
     pub fn into_bytes(self) -> MArray<u8> {
         MArray(self.0.into_bytes())
     }

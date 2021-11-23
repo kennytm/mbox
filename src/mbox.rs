@@ -144,19 +144,19 @@ impl<T: ?Sized + Free> BorrowMut<T> for MBox<T> {
 impl<T: ?Sized + Free + Unsize<U>, U: ?Sized + Free> CoerceUnsized<MBox<U>> for MBox<T> {}
 
 impl<T: ?Sized + Free> Pointer for MBox<T> {
-    fn fmt(&self, formatter: &mut Formatter) -> FormatResult {
+    fn fmt(&self, formatter: &mut Formatter<'_>) -> FormatResult {
         Pointer::fmt(&Self::as_ptr(self), formatter)
     }
 }
 
 impl<T: ?Sized + Free + Debug> Debug for MBox<T> {
-    fn fmt(&self, formatter: &mut Formatter) -> FormatResult {
+    fn fmt(&self, formatter: &mut Formatter<'_>) -> FormatResult {
         self.deref().fmt(formatter)
     }
 }
 
 impl<T: ?Sized + Free + Display> Display for MBox<T> {
-    fn fmt(&self, formatter: &mut Formatter) -> FormatResult {
+    fn fmt(&self, formatter: &mut Formatter<'_>) -> FormatResult {
         self.deref().fmt(formatter)
     }
 }
@@ -428,7 +428,7 @@ mod slice_helper {
     use super::*;
 
     /// A `Vec`-like structure backed by `malloc()`.
-    pub struct MSliceBuilder<T> {
+    pub(crate) struct MSliceBuilder<T> {
         ptr: NonNull<T>,
         cap: usize,
         len: usize,
@@ -436,7 +436,7 @@ mod slice_helper {
 
     impl<T> MSliceBuilder<T> {
         /// Creates a new slice builder with an initial capacity.
-        pub fn with_capacity(cap: usize) -> MSliceBuilder<T> {
+        pub(crate) fn with_capacity(cap: usize) -> MSliceBuilder<T> {
             MSliceBuilder {
                 ptr: gen_malloc(cap),
                 cap,
@@ -444,7 +444,7 @@ mod slice_helper {
             }
         }
 
-        pub fn push(&mut self, obj: T) {
+        pub(crate) fn push(&mut self, obj: T) {
             // SAFETY:
             //  - self.ptr is initialized from gen_malloc() so it can be placed into gen_realloc()
             //  - we guarantee that `self.ptr `points to an array of nonzero length `self.cap`, and
@@ -465,7 +465,7 @@ mod slice_helper {
             self.len += 1;
         }
 
-        pub fn into_mboxed_slice(self) -> MBox<[T]> {
+        pub(crate) fn into_mboxed_slice(self) -> MBox<[T]> {
             // SAFETY: `self.ptr` has been allocated by malloc(), and its length is self.cap
             // (>= self.len).
             let slice = unsafe { MBox::from_raw_parts(self.ptr.as_ptr(), self.len) };
@@ -477,7 +477,7 @@ mod slice_helper {
     impl<T> MSliceBuilder<MaybeUninit<T>> {
         /// Sets the length of the builder to the same as the capacity. The elements in the
         /// uninitialized tail remains uninitialized.
-        pub fn set_len_to_cap(&mut self) {
+        pub(crate) fn set_len_to_cap(&mut self) {
             self.len = self.cap;
         }
     }
