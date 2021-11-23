@@ -1,5 +1,3 @@
-//! Sentinel-terminated types.
-
 use libc::{c_char, strlen};
 use stable_deref_trait::StableDeref;
 

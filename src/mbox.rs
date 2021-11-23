@@ -1,5 +1,3 @@
-//! `malloc`-based Box.
-
 use stable_deref_trait::StableDeref;
 
 use std::cmp::Ordering;
