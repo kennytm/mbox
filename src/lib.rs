@@ -77,9 +77,12 @@ extern crate core as std;
 extern crate libc;
 extern crate stable_deref_trait;
 
+#[doc(hidden)] // TODO: Remove `pub` as breaking change
 pub mod free;
 mod internal;
+#[doc(hidden)] // TODO: Remove `pub` as breaking change
 pub mod mbox;
+#[doc(hidden)] // TODO: Remove `pub` as breaking change
 pub mod sentinel;
 
 pub use self::free::Free;
