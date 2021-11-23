@@ -61,19 +61,19 @@ impl<T: ?Sized + Unsize<U>, U: ?Sized> CoerceUnsized<Unique<U>> for Unique<T> {}
 
 #[cfg(windows)]
 unsafe fn malloc_aligned(size: usize, _align: usize) -> *mut c_void {
-    libc::malloc(size)
+    unsafe { libc::malloc(size) }
 }
 
 #[cfg(all(not(windows), target_os = "android"))]
 unsafe fn malloc_aligned(size: usize, align: usize) -> *mut c_void {
-    libc::memalign(align, size)
+    unsafe { libc::memalign(align, size) }
 }
 
 #[cfg(all(not(windows), not(target_os = "android")))]
 unsafe fn malloc_aligned(size: usize, align: usize) -> *mut c_void {
     let mut result = std::ptr::null_mut();
     let align = align.max(size_of::<*mut ()>());
-    libc::posix_memalign(&mut result, align, size);
+    unsafe { libc::posix_memalign(&mut result, align, size) };
     result
 }
 
@@ -104,7 +104,7 @@ pub(crate) fn gen_malloc<T>(count: usize) -> NonNull<T> {
 /// The `ptr` must be obtained from `malloc()` or similar C functions.
 pub(crate) unsafe fn gen_free<T>(ptr: NonNull<T>) {
     if ptr != NonNull::dangling() {
-        libc::free(ptr.as_ptr() as *mut c_void);
+        unsafe { libc::free(ptr.as_ptr() as *mut c_void) };
     }
 }
 
@@ -117,15 +117,15 @@ pub(crate) unsafe fn gen_realloc<T>(ptr: NonNull<T>, new_count: usize) -> NonNul
     if size_of::<T>() == 0 {
         ptr
     } else if new_count == 0 {
-        gen_free(ptr);
+        unsafe { gen_free(ptr) };
         NonNull::dangling()
     } else if ptr == NonNull::dangling() {
         gen_malloc(new_count)
     } else {
         if let Some(requested_size) = new_count.checked_mul(size_of::<T>()) {
-            let res = libc::realloc(ptr.as_ptr() as *mut c_void, requested_size);
-            if !res.is_null() {
-                return NonNull::new_unchecked(res as *mut T);
+            let res = unsafe { libc::realloc(ptr.as_ptr() as *mut c_void, requested_size) };
+            if let Some(res) = NonNull::new(res as *mut T) {
+                return res;
             }
         }
         handle_alloc_error(Layout::new::<T>());

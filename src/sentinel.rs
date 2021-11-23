@@ -67,10 +67,10 @@ impl<T: Sentinel> MArray<T> {
     /// passed into the result, and thus should not be used after this function returns.
     pub unsafe fn from_raw(base: *mut T) -> MArray<T> {
         let mut len = 0;
-        while *base.add(len) != T::SENTINEL {
+        while unsafe { *base.add(len) != T::SENTINEL } {
             len += 1;
         }
-        MArray(MBox::from_raw_parts(base, len + 1))
+        MArray(unsafe { MBox::from_raw_parts(base, len + 1) })
     }
 
     /// Converts into an `MBox` including the sentinel.
@@ -104,11 +104,8 @@ impl MString {
     ///
     /// The string must be valid UTF-8.
     pub unsafe fn from_raw_unchecked(base: *mut c_char) -> MString {
-        let len = strlen(base);
-        MString(MBox::from_raw_utf8_parts_unchecked(
-            base as *mut u8,
-            len + 1,
-        ))
+        let len = unsafe { strlen(base) };
+        MString(unsafe { MBox::from_raw_utf8_parts_unchecked(base as *mut u8, len + 1) })
     }
 
     /// Constructs a new malloc-backed string from a null-terminated C string. Errors with
@@ -121,8 +118,8 @@ impl MString {
     /// must be already initialized, and terminated by `'\0'`. The string's ownership is passed into
     /// the result, and thus should not be used after this function returns.
     pub unsafe fn from_raw(base: *mut c_char) -> Result<MString, Utf8Error> {
-        let len = strlen(base);
-        let mbox = MBox::from_raw_utf8_parts(base as *mut u8, len + 1)?;
+        let len = unsafe { strlen(base) };
+        let mbox = unsafe { MBox::from_raw_utf8_parts(base as *mut u8, len + 1)? };
         Ok(MString(mbox))
     }
 

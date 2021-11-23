@@ -75,6 +75,7 @@
 #![warn(missing_docs)]
 #![deny(non_ascii_idents)]
 #![warn(unreachable_pub)]
+#![deny(unsafe_op_in_unsafe_fn)]
 
 #[cfg(not(feature = "std"))]
 extern crate core as std;
