@@ -1,5 +1,6 @@
 //! `malloc`-based Box.
 
+#[cfg(feature = "stable_deref_trait")]
 use stable_deref_trait::StableDeref;
 
 use std::cmp::Ordering;
@@ -106,6 +107,7 @@ impl<T: ?Sized + Free> Deref for MBox<T> {
     }
 }
 
+#[cfg(feature = "stable_deref_trait")]
 unsafe impl<T: ?Sized + Free> StableDeref for MBox<T> {}
 
 impl<T: ?Sized + Free> Unpin for MBox<T> {}
