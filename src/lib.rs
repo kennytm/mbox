@@ -82,5 +82,6 @@ mod internal;
 pub mod mbox;
 pub mod sentinel;
 
-pub use mbox::MBox;
-pub use sentinel::{MArray, MString};
+pub use self::free::Free;
+pub use self::mbox::{MBox, MSliceIntoIter};
+pub use self::sentinel::{MArray, MString, Sentinel};
