@@ -6,7 +6,15 @@ edition = "2018"
 
 license = "MIT"
 keywords = ["malloc", "free", "ffi", "box", "cstr"]
+categories = [
+    "api-bindings",
+    "development-tools::ffi",
+    "memory-management",
+    "no-std",
+    "os",
+]
 repository = "https://github.com/kennytm/mbox"
+documentation = "https://docs.rs/mbox/"
 readme = "README.md"
 description = """malloc-based box.
 
