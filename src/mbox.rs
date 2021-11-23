@@ -90,6 +90,20 @@ impl<T: ?Sized + Free> MBox<T> {
         forget(boxed);
         ptr
     }
+
+    /// Converts an `MBox<T>` into a `Pin<MBox<T>>`.
+    ///
+    /// This conversion does not allocate on the heap and happens in place.
+    pub fn into_pin(boxed: Self) -> Pin<Self> {
+        // SAFETY: Same reason as why `Box::into_pin` is safe.
+        unsafe { Pin::new_unchecked(boxed) }
+    }
+}
+
+impl<T: ?Sized + Free> From<MBox<T>> for Pin<MBox<T>> {
+    fn from(boxed: MBox<T>) -> Self {
+        MBox::into_pin(boxed)
+    }
 }
 
 impl<T: ?Sized + Free> Drop for MBox<T> {
@@ -238,14 +252,6 @@ impl<T> MBox<T> {
             gen_free(src);
             dst.assume_init()
         }
-    }
-
-    /// Converts an `MBox<T>` into a `Pin<MBox<T>>`.
-    ///
-    /// This conversion does not allocate on the heap and happens in place.
-    pub fn into_pin(boxed: Self) -> Pin<Self> {
-        // SAFETY: Same reason as why `Box::into_pin` is safe.
-        unsafe { Pin::new_unchecked(boxed) }
     }
 
     /// Consumes and leaks the `MBox`, returning a mutable reference, `&'a mut T`.
@@ -940,6 +946,12 @@ impl From<&str> for MBox<str> {
             copy_nonoverlapping(string.as_ptr(), new_slice, len);
             Self::from_raw_utf8_parts_unchecked(new_slice, len)
         }
+    }
+}
+
+impl From<MBox<str>> for MBox<[u8]> {
+    fn from(string: MBox<str>) -> Self {
+        string.into_bytes()
     }
 }
 
