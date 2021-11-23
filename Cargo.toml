@@ -2,6 +2,8 @@
 name = "mbox"
 version = "0.6.0"
 authors = ["kennytm <kennytm@gmail.com>"]
+edition = "2018"
+
 license = "MIT"
 keywords = ["malloc", "free", "ffi", "box", "cstr"]
 repository = "https://github.com/kennytm/mbox"

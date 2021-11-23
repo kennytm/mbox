@@ -14,11 +14,11 @@ use std::ops::{Deref, DerefMut};
 use std::ptr::{copy_nonoverlapping, null, null_mut, write};
 use std::str::Utf8Error;
 
-use internal::gen_malloc;
-use mbox::MBox;
+use crate::internal::gen_malloc;
+use crate::mbox::MBox;
 
 #[cfg(test)]
-use internal::DropCounter;
+use crate::internal::DropCounter;
 
 /// Implemented for types which has a sentinel value.
 pub trait Sentinel: Eq {

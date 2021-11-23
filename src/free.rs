@@ -2,7 +2,7 @@
 
 use std::ptr::{drop_in_place, NonNull};
 
-use internal::gen_free;
+use crate::internal::gen_free;
 
 /// Implemented for pointers which can be freed.
 pub trait Free {

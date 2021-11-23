@@ -82,5 +82,5 @@ mod internal;
 pub mod mbox;
 pub mod sentinel;
 
-pub use mbox::MBox;
-pub use sentinel::{MArray, MString};
+pub use self::mbox::MBox;
+pub use self::sentinel::{MArray, MString};
