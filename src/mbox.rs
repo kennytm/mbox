@@ -52,6 +52,10 @@ impl<T: ?Sized + Free> MBox<T> {
     /// expected to be deallocated using `free()`. It must be aligned and not null. The content of the pointer
     /// must be already initialized. The pointer's ownership is passed into the box, and thus should
     /// not be used after this function returns.
+    ///
+    /// Note that even when `T` is zero-sized, the input `ptr` is *still* expected to be released using
+    /// `free()`. Therefore, you must not use a conceived dangling pointer such as `NonNull::dangling()`
+    /// here. Consider using `malloc(1)` in case of ZSTs.
     pub unsafe fn from_raw(ptr: *mut T) -> Self {
         Self::from_non_null_raw(NonNull::new_unchecked(ptr))
     }
@@ -64,6 +68,10 @@ impl<T: ?Sized + Free> MBox<T> {
     /// expected to be deallocated using `free()`. The content of the pointer must be already
     /// initialized. The pointer's ownership is passed into the box, and thus should not be used
     /// after this function returns.
+    ///
+    /// Note that even when `T` is zero-sized, the input `ptr` is *still* expected to be released using
+    /// `free()`. Therefore, you must not use a conceived dangling pointer such as `NonNull::dangling()`
+    /// here. Consider using `malloc(1)` in case of ZSTs.
     pub unsafe fn from_non_null_raw(ptr: NonNull<T>) -> Self {
         Self(Unique::new(ptr))
     }
@@ -475,21 +483,22 @@ mod slice_helper {
         }
 
         pub fn push(&mut self, obj: T) {
-            // SAFETY:
-            //  - self.ptr is initialized from gen_malloc() so it can be placed into gen_realloc()
-            //  - we guarantee that `self.ptr `points to an array of nonzero length `self.cap`, and
-            //    the `if` condition ensures the invariant `self.len < self.cap`, so
-            //    `self.ptr.add(self.len)` is always a valid (but uninitialized) object.
-            //  - since `self.ptr[self.len]` is not yet initialized, we can `write()` into it safely.
-            unsafe {
-                if self.len >= self.cap {
-                    if self.cap == 0 {
-                        self.cap = 1;
-                    } else {
-                        self.cap *= 2;
-                    }
-                    self.ptr = gen_realloc(self.ptr, self.cap);
+            if self.len >= self.cap {
+                let new_cap = (self.cap * 2).max(1);
+                // SAFETY:
+                //  - ptr is initialized from gen_malloc() so it can be placed into gen_realloc()
+                unsafe {
+                    self.ptr = gen_realloc(self.ptr, self.cap, new_cap);
                 }
+                self.cap = new_cap;
+            }
+
+            // SAFETY:
+            //  - we guarantee that `ptr `points to an array of nonzero length `cap`, and
+            //    the `if` condition ensures the invariant `self.len < cap`, so
+            //    `ptr.add(self.len)` is always a valid (but uninitialized) object.
+            //  - since `ptr[self.len]` is not yet initialized, we can `write()` into it safely.
+            unsafe {
                 write(self.ptr.as_ptr().add(self.len), obj);
             }
             self.len += 1;
@@ -514,6 +523,7 @@ mod slice_helper {
 
     impl<T> Drop for MSliceBuilder<T> {
         fn drop(&mut self) {
+            // SAFETY: `ptr` has been allocated by `gen_malloc()`.
             unsafe {
                 gen_free(self.ptr);
             }
@@ -826,6 +836,24 @@ fn test_from_iterator() {
         }
     }
     counter.assert_eq(19);
+}
+
+#[test]
+fn test_from_iterator_with_no_size_hint() {
+    struct RedactSizeHint<I>(I);
+
+    impl<I: Iterator> Iterator for RedactSizeHint<I> {
+        type Item = I::Item;
+
+        fn next(&mut self) -> Option<Self::Item> {
+            self.0.next()
+        }
+    }
+
+    let it = RedactSizeHint(b"1234567890".iter().copied());
+    assert_eq!(it.size_hint(), (0, None));
+    let slice = it.collect::<MBox<[u8]>>();
+    assert_eq!(&*slice, b"1234567890");
 }
 
 #[cfg(not(windows))]
