@@ -1,6 +1,6 @@
 [package]
 name = "mbox"
-version = "0.7.1"
+version = "0.6.1"
 authors = ["kennytm <kennytm@gmail.com>"]
 edition = "2018"
 rust-version = "1.36.0"
@@ -24,6 +24,16 @@ will be free'd on drop.
 """
 
 exclude = [".gitignore", ".github"]
+
+[build-dependencies]
+rustc_version = "0.3"
+# lock max dependency version to ensure edition is below 2018
+pest = ">=2, <=2.2.0"
+ucd-trie = ">=0.1, <=0.1.4"
+thiserror = ">=1, <=1.0.39"
+proc-macro2 = ">=1, <=1.0.65"
+once_cell = ">=1, <=1.14.0"
+syn = ">=1, <=1.0.107"
 
 [dependencies]
 libc = "0.2"
