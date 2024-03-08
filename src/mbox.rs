@@ -20,10 +20,10 @@ use std::{
     ptr::NonNull,
 };
 
-use internal::{gen_free, gen_malloc, gen_realloc, Unique};
+use crate::internal::{gen_free, gen_malloc, gen_realloc, Unique};
 
 #[cfg(test)]
-use internal::{DropCounter, PanicOnClone};
+use crate::internal::{DropCounter, PanicOnClone};
 #[cfg(test)]
 use std::iter::{once, repeat};
 #[cfg(test)]
@@ -34,7 +34,7 @@ use std::marker::Unsize;
 #[cfg(nightly_channel)]
 use std::ops::CoerceUnsized;
 
-use free::Free;
+use crate::free::Free;
 
 //{{{ Basic structure -----------------------------------------------------------------------------
 
