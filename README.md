@@ -74,8 +74,9 @@ type simply does not exist 🙂.
 Note that `MBox` does not support custom allocator. If the type requires custom allocation,
 `MBox` cannot serve you.
 
-* [`malloc_buf`](https://crates.io/crates/malloc_buf) — `MallocBuffer<T>` is equivalent to
-  `MBox<[T]>`. Note however we will not check for null pointers.
+* [`malloc_buf`](https://crates.io/crates/malloc_buf) — `Malloc<T>` is equivalent to `MBox<T>`.
+  Note however that `MBox<[T]>::from_raw_parts` will not allow null, 0-length buffers; use a
+  dangling pointer instead.
 
 * [`cbox`](https://crates.io/crates/cbox) — When not using a custom `DisposeRef`, the
   `CSemiBox<'static, T>` type is equivalent to `MBox<T>`, and `CBox<T>` is equivalent to
@@ -83,3 +84,10 @@ Note that `MBox` does not support custom allocator. If the type requires custom 
 
 * [`c_vec`](https://crates.io/crates/c_vec) — When using `free` as the destructor, `CVec<T>` is
   equivalent to `MBox<[T]>` and `CSlice<T>` as `[T]`.
+
+* [`malloced`](https://crates.io/crates/malloced) — `Malloced<T>` is equivalent to `MBox<T>`.
+  Note however that `mbox` depends on `libc` (more stable, but also longer build-time) and
+  doesn't support `dyn Any` downcasting.
+
+* [`malloc-array`](https://crates.io/crates/malloc-array) — `HeapArray<T>` is similar to
+  `MBox<T>`, but this crate focuses more on raw memory management.
