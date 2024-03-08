@@ -18,7 +18,7 @@ use std::str::Utf8Error;
 use crate::internal::gen_malloc;
 use crate::mbox::MBox;
 
-#[cfg(test)]
+#[cfg(all(test, not(windows)))]
 use crate::internal::DropCounter;
 
 /// Implemented for types which has a sentinel value.
@@ -308,6 +308,7 @@ fn test_array() {
     }
 }
 
+#[cfg(not(windows))]
 #[test]
 fn test_array_with_drop() {
     let counter = DropCounter::default();
@@ -373,6 +374,7 @@ fn test_c_str() {
     }
 }
 
+#[cfg(not(windows))]
 #[test]
 fn test_array_into_mbox() {
     let first = MArray::from_slice(&[123, 456, 789]);
@@ -393,6 +395,7 @@ fn test_string_into_mbox() {
     assert_eq!(&*second.into_mbox_with_sentinel(), "abcde\0");
 }
 
+#[cfg(not(windows))]
 #[test]
 fn test_default_array() {
     let arr = MArray::<u64>::default();

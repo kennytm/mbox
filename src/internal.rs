@@ -13,9 +13,9 @@ use self::alloc::alloc::handle_alloc_error;
 #[cfg(feature = "std")]
 use std::alloc::handle_alloc_error;
 
-#[cfg(nightly_channel)]
+#[cfg(feature = "nightly")]
 use std::marker::Unsize;
-#[cfg(nightly_channel)]
+#[cfg(feature = "nightly")]
 use std::ops::CoerceUnsized;
 
 //{{{ Unique --------------------------------------------------------------------------------------
@@ -52,7 +52,7 @@ impl<T: ?Sized> Unique<T> {
     }
 }
 
-#[cfg(nightly_channel)]
+#[cfg(feature = "nightly")]
 impl<T: ?Sized + Unsize<U>, U: ?Sized> CoerceUnsized<Unique<U>> for Unique<T> {}
 
 //}}}
@@ -60,19 +60,34 @@ impl<T: ?Sized + Unsize<U>, U: ?Sized> CoerceUnsized<Unique<U>> for Unique<T> {}
 //{{{ gen_malloc ----------------------------------------------------------------------------------
 
 #[cfg(windows)]
-unsafe fn malloc_aligned(size: usize, _align: usize) -> *mut c_void {
+unsafe fn malloc_aligned<T>(size: usize) -> *mut c_void {
+    struct AlignmentChecker<T>(PhantomData<T>);
+    impl<T> AlignmentChecker<T> {
+        // Ensure in compile-time that the alignment of T is 1.
+        // If the alignment is > , the subtraction here will overflow to stop compilation.
+        // (This hack is needed for targeting Rust 1.36.)
+        const ENSURE_ALIGNMENT_IS_1: usize = 1 - align_of::<T>();
+    }
+    // The assert here should be eliminated by optimization,
+    // but it is used to ensure the const evaluation actually does happen.
+    assert_eq!(
+        0,
+        AlignmentChecker::<T>::ENSURE_ALIGNMENT_IS_1,
+        "Windows malloc() only support alignment of 1"
+    );
+
     libc::malloc(size)
 }
 
 #[cfg(all(not(windows), target_os = "android"))]
-unsafe fn malloc_aligned(size: usize, align: usize) -> *mut c_void {
-    libc::memalign(align, size)
+unsafe fn malloc_aligned<T>(size: usize) -> *mut c_void {
+    libc::memalign(align_of::<T>(), size)
 }
 
 #[cfg(all(not(windows), not(target_os = "android")))]
-unsafe fn malloc_aligned(size: usize, align: usize) -> *mut c_void {
+unsafe fn malloc_aligned<T>(size: usize) -> *mut c_void {
     let mut result = std::ptr::null_mut();
-    let align = align.max(size_of::<*mut ()>());
+    let align = align_of::<T>().max(size_of::<*mut ()>());
     libc::posix_memalign(&mut result, align, size);
     result
 }
@@ -88,7 +103,7 @@ pub fn gen_malloc<T>(count: usize) -> NonNull<T> {
         //  - in the rare case allocation failed, we throw an allocation error, so when we reach
         //    NonNull::new_unchecked we can be sure the result is not null.
         unsafe {
-            let res = malloc_aligned(requested_size, align_of::<T>()) as *mut T;
+            let res = malloc_aligned::<T>(requested_size) as *mut T;
             if res.is_null() {
                 handle_alloc_error(Layout::new::<T>());
             }
@@ -136,7 +151,7 @@ pub unsafe fn gen_realloc<T>(ptr: NonNull<T>, new_count: usize) -> NonNull<T> {
 
 //{{{ Drop counter --------------------------------------------------------------------------------
 
-#[cfg(test)]
+#[cfg(all(test, not(windows)))]
 #[derive(Clone, Debug, PartialEq, Eq)]
 #[cfg_attr(feature = "std", derive(Default))]
 pub(crate) struct SharedCounter {
@@ -148,7 +163,7 @@ pub(crate) struct SharedCounter {
     counter: NonNull<usize>,
 }
 
-#[cfg(all(test, not(feature = "std")))]
+#[cfg(all(test, not(windows), not(feature = "std")))]
 impl Default for SharedCounter {
     fn default() -> Self {
         // SAFETY: malloc() returns an uninitialized integer which is then filled in.
@@ -160,7 +175,7 @@ impl Default for SharedCounter {
     }
 }
 
-#[cfg(test)]
+#[cfg(all(test, not(windows)))]
 impl SharedCounter {
     /// Gets the counter value.
     pub(crate) fn get(&self) -> usize {
@@ -198,11 +213,11 @@ impl SharedCounter {
 }
 
 /// A test structure to count how many times the value has been dropped.
-#[cfg(test)]
+#[cfg(all(test, not(windows)))]
 #[derive(Clone, Debug, PartialEq, Eq, Default)]
 pub(crate) struct DropCounter(SharedCounter);
 
-#[cfg(test)]
+#[cfg(all(test, not(windows)))]
 impl std::ops::Deref for DropCounter {
     type Target = SharedCounter;
     fn deref(&self) -> &Self::Target {
@@ -210,7 +225,7 @@ impl std::ops::Deref for DropCounter {
     }
 }
 
-#[cfg(test)]
+#[cfg(all(test, not(windows)))]
 impl Drop for DropCounter {
     fn drop(&mut self) {
         self.0.inc();
@@ -224,6 +239,7 @@ impl Drop for DropCounter {
 /// A test structure which panics when it is cloned.
 #[cfg(test)]
 #[derive(Default)]
+#[repr(C)] // silence the dead code warning, we don't want a ZST here to complicate things.
 pub struct PanicOnClone(u8);
 
 #[cfg(test)]
