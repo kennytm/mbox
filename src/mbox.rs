@@ -51,7 +51,10 @@ impl<T: ?Sized + Free> MBox<T> {
     /// must be already initialized. The pointer's ownership is passed into the box, and thus should
     /// not be used after this function returns.
     pub unsafe fn from_raw(ptr: *mut T) -> Self {
-        Self::from_non_null_raw(NonNull::new_unchecked(ptr))
+        // SAFETY: Caller upholds that `ptr` is not null
+        let ptr = unsafe { NonNull::new_unchecked(ptr) };
+        // SAFETY: Caller upholds invariants
+        unsafe { Self::from_non_null_raw(ptr) }
     }
 
     /// Constructs a new malloc-backed box from a non-null pointer allocated by `malloc`.
@@ -63,7 +66,7 @@ impl<T: ?Sized + Free> MBox<T> {
     /// initialized. The pointer's ownership is passed into the box, and thus should not be used
     /// after this function returns.
     pub unsafe fn from_non_null_raw(ptr: NonNull<T>) -> Self {
-        Self(Unique::new(ptr))
+        Self(unsafe { Unique::new(ptr) })
     }
 
     /// Obtains the pointer owned by the box.
@@ -146,19 +149,19 @@ impl<T: ?Sized + Free> BorrowMut<T> for MBox<T> {
 impl<T: ?Sized + Free + Unsize<U>, U: ?Sized + Free> CoerceUnsized<MBox<U>> for MBox<T> {}
 
 impl<T: ?Sized + Free> Pointer for MBox<T> {
-    fn fmt(&self, formatter: &mut Formatter) -> FormatResult {
+    fn fmt(&self, formatter: &mut Formatter<'_>) -> FormatResult {
         Pointer::fmt(&Self::as_ptr(self), formatter)
     }
 }
 
 impl<T: ?Sized + Free + Debug> Debug for MBox<T> {
-    fn fmt(&self, formatter: &mut Formatter) -> FormatResult {
+    fn fmt(&self, formatter: &mut Formatter<'_>) -> FormatResult {
         self.deref().fmt(formatter)
     }
 }
 
 impl<T: ?Sized + Free + Display> Display for MBox<T> {
-    fn fmt(&self, formatter: &mut Formatter) -> FormatResult {
+    fn fmt(&self, formatter: &mut Formatter<'_>) -> FormatResult {
         self.deref().fmt(formatter)
     }
 }
@@ -269,7 +272,8 @@ impl<T> MBox<MaybeUninit<T>> {
     ///
     /// The caller should guarantee `*self` is indeed initialized.
     pub unsafe fn assume_init(self) -> MBox<T> {
-        MBox::from_non_null_raw(Self::into_non_null_raw(self).cast())
+        let ptr = Self::into_non_null_raw(self).cast();
+        unsafe { MBox::from_non_null_raw(ptr) }
     }
 }
 
@@ -430,7 +434,7 @@ mod slice_helper {
     use super::*;
 
     /// A `Vec`-like structure backed by `malloc()`.
-    pub struct MSliceBuilder<T> {
+    pub(crate) struct MSliceBuilder<T> {
         ptr: NonNull<T>,
         cap: usize,
         len: usize,
@@ -438,7 +442,7 @@ mod slice_helper {
 
     impl<T> MSliceBuilder<T> {
         /// Creates a new slice builder with an initial capacity.
-        pub fn with_capacity(cap: usize) -> MSliceBuilder<T> {
+        pub(crate) fn with_capacity(cap: usize) -> MSliceBuilder<T> {
             MSliceBuilder {
                 ptr: gen_malloc(cap),
                 cap,
@@ -446,7 +450,7 @@ mod slice_helper {
             }
         }
 
-        pub fn push(&mut self, obj: T) {
+        pub(crate) fn push(&mut self, obj: T) {
             // SAFETY:
             //  - self.ptr is initialized from gen_malloc() so it can be placed into gen_realloc()
             //  - we guarantee that `self.ptr `points to an array of nonzero length `self.cap`, and
@@ -467,7 +471,7 @@ mod slice_helper {
             self.len += 1;
         }
 
-        pub fn into_mboxed_slice(self) -> MBox<[T]> {
+        pub(crate) fn into_mboxed_slice(self) -> MBox<[T]> {
             // SAFETY: `self.ptr` has been allocated by malloc(), and its length is self.cap
             // (>= self.len).
             let slice = unsafe { MBox::from_raw_parts(self.ptr.as_ptr(), self.len) };
@@ -479,7 +483,7 @@ mod slice_helper {
     impl<T> MSliceBuilder<MaybeUninit<T>> {
         /// Sets the length of the builder to the same as the capacity. The elements in the
         /// uninitialized tail remains uninitialized.
-        pub fn set_len_to_cap(&mut self) {
+        pub(crate) fn set_len_to_cap(&mut self) {
             self.len = self.cap;
         }
     }
@@ -568,8 +572,8 @@ impl<T> MBox<[T]> {
     /// The `malloc`ed size of the pointer must be at least `len * size_of::<T>()`. The content
     /// must already been initialized.
     pub unsafe fn from_raw_parts(ptr: *mut T, len: usize) -> Self {
-        let ptr = from_raw_parts_mut(ptr, len) as *mut [T];
-        Self::from_raw(ptr)
+        let ptr = unsafe { from_raw_parts_mut(ptr, len) } as *mut [T];
+        unsafe { Self::from_raw(ptr) }
     }
 
     /// Constructs a new boxed slice with uninitialized contents.
@@ -595,7 +599,8 @@ impl<T> MBox<[MaybeUninit<T>]> {
     ///
     /// The caller should guarantee `*self` is indeed initialized.
     pub unsafe fn assume_init(self) -> MBox<[T]> {
-        MBox::from_raw(Self::into_raw(self) as *mut [T])
+        let ptr = Self::into_raw(self) as *mut [T];
+        unsafe { MBox::from_raw(ptr) }
     }
 }
 
@@ -880,9 +885,9 @@ impl MBox<str> {
     /// The `malloc`ed size of the pointer must be at least `len`. The content must already been
     /// initialized and be valid UTF-8.
     pub unsafe fn from_raw_utf8_parts_unchecked(value: *mut u8, len: usize) -> MBox<str> {
-        let bytes = from_raw_parts(value, len);
-        let string = from_utf8_unchecked(bytes) as *const str as *mut str;
-        Self::from_raw(string)
+        let bytes = unsafe { from_raw_parts(value, len) };
+        let string = unsafe { from_utf8_unchecked(bytes) } as *const str as *mut str;
+        unsafe { Self::from_raw(string) }
     }
 
     /// Constructs a new malloc-backed string from the pointer and the length (number of UTF-8 code
@@ -892,9 +897,9 @@ impl MBox<str> {
     ///
     /// The `malloc`ed size of the pointer must be at least `len`.
     pub unsafe fn from_raw_utf8_parts(value: *mut u8, len: usize) -> Result<MBox<str>, Utf8Error> {
-        let bytes = from_raw_parts(value, len);
+        let bytes = unsafe { from_raw_parts(value, len) };
         let string = from_utf8(bytes)? as *const str as *mut str;
-        Ok(Self::from_raw(string))
+        Ok(unsafe { Self::from_raw(string) })
     }
 
     /// Converts the string into raw bytes.
@@ -908,16 +913,15 @@ impl MBox<str> {
     ///
     /// The raw bytes must be valid UTF-8.
     pub unsafe fn from_utf8_unchecked(bytes: MBox<[u8]>) -> MBox<str> {
-        Self::from_raw(MBox::into_raw(bytes) as *mut str)
+        let ptr = MBox::into_raw(bytes) as *mut str;
+        unsafe { Self::from_raw(ptr) }
     }
 
     /// Creates a string from raw bytes. If the content does not contain valid UTF-8, this method
     /// returns an `Err`.
     pub fn from_utf8(bytes: MBox<[u8]>) -> Result<MBox<str>, Utf8Error> {
-        unsafe {
-            let (ptr, len) = bytes.into_raw_parts();
-            Self::from_raw_utf8_parts(ptr, len)
-        }
+        let (ptr, len) = bytes.into_raw_parts();
+        unsafe { Self::from_raw_utf8_parts(ptr, len) }
     }
 }
 

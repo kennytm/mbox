@@ -20,8 +20,8 @@ pub trait Free {
 
 /// Drops the content of `*ptr`, then frees the `ptr` itself.
 unsafe fn free_ptr_ref<T>(ptr: NonNull<T>) {
-    drop_in_place(ptr.as_ptr());
-    gen_free(ptr);
+    unsafe { drop_in_place(ptr.as_ptr()) };
+    unsafe { gen_free(ptr) };
 }
 
 impl<T> Free for T {
@@ -32,20 +32,23 @@ impl<T> Free for T {
 
     #[cfg(stable_channel)]
     unsafe fn free(ptr_ref: NonNull<Self>) {
-        free_ptr_ref(ptr_ref);
+        unsafe { free_ptr_ref(ptr_ref) };
     }
 }
 
 impl<T> Free for [T] {
     unsafe fn free(mut fat_ptr: NonNull<Self>) {
-        let thin_ptr = NonNull::new_unchecked(fat_ptr.as_mut().as_mut_ptr());
-        drop_in_place(fat_ptr.as_ptr());
-        gen_free(thin_ptr);
+        // TODO: Avoid dereference here
+        let thin_ptr = unsafe { fat_ptr.as_mut() }.as_mut_ptr();
+        // SAFETY: The pointer came from `fat_ptr`, which is NonNull
+        let thin_ptr = unsafe { NonNull::new_unchecked(thin_ptr) };
+        unsafe { drop_in_place(fat_ptr.as_ptr()) };
+        unsafe { gen_free(thin_ptr) };
     }
 }
 
 impl Free for str {
     unsafe fn free(fat_ptr: NonNull<Self>) {
-        Free::free(NonNull::new_unchecked(fat_ptr.as_ptr() as *mut [u8]));
+        unsafe { Free::free(NonNull::new_unchecked(fat_ptr.as_ptr() as *mut [u8])) };
     }
 }
