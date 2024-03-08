@@ -1,6 +1,7 @@
 //! Sentinel-terminated types.
 
 use libc::{c_char, strlen};
+#[cfg(feature = "stable_deref_trait")]
 use stable_deref_trait::StableDeref;
 
 use std::borrow::{Borrow, BorrowMut};
@@ -181,7 +182,9 @@ impl Deref for MString {
     }
 }
 
+#[cfg(feature = "stable_deref_trait")]
 unsafe impl<T: Sentinel> StableDeref for MArray<T> {}
+#[cfg(feature = "stable_deref_trait")]
 unsafe impl StableDeref for MString {}
 
 impl<T: Sentinel> DerefMut for MArray<T> {

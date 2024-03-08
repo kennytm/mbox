@@ -20,8 +20,12 @@ jobs:
         run: cargo fmt -- --check
       - name: Test
         run: cargo test
-      - name: Test (no-std)
+      - name: Test (no features)
         run: cargo test --no-default-features
+      - name: Test (no stable_deref_trait)
+        run: cargo test --no-default-features --features std
+      - name: Test (no-std)
+        run: cargo test --no-default-features --features stable_deref_trait
 
   platform-test:
     strategy:
