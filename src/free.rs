@@ -37,10 +37,10 @@ impl<T> Free for T {
 }
 
 impl<T> Free for [T] {
-    unsafe fn free(mut fat_ptr: NonNull<Self>) {
-        let thin_ptr = NonNull::new_unchecked(fat_ptr.as_mut().as_mut_ptr());
-        drop_in_place(fat_ptr.as_ptr());
-        gen_free(thin_ptr);
+    unsafe fn free(fat_ptr: NonNull<Self>) {
+        let fat_ptr = fat_ptr.as_ptr();
+        drop_in_place(fat_ptr);
+        gen_free(NonNull::new_unchecked(fat_ptr as *mut T));
     }
 }
 
