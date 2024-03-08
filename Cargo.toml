@@ -1,6 +1,6 @@
 [package]
 name = "mbox"
-version = "0.7.0"
+version = "0.7.1"
 authors = ["kennytm <kennytm@gmail.com>"]
 edition = "2018"
 rust-version = "1.36.0"
