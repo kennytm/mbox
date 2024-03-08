@@ -1,10 +1,11 @@
-//! `malloc`-based box.
+//! `mbox`: `malloc`-based box
+//! ==========================
 //!
 //! This crate provides structures that wrap pointers returned from `malloc` as a Box, and
 //! automatically `free` them on drop. These types allow you to interact with pointers and
 //! null-terminated strings and arrays in a Rusty style.
 //!
-//! # Examples
+//! ## Examples
 //!
 //! ```rust
 //! extern crate libc;
@@ -31,30 +32,70 @@
 //! }
 //! ```
 //!
-//! # Usage
+//! > Note: This crate does not support Windows in general.
+//! >
+//! > Pointers in Rust are required to be aligned to be sound. However, there is no API on
+//! > Windows that are both compatible with `free()` and supports aligned-malloc.
+//! >
+//! > Because the primary purpose of this crate is interoperability with C code working
+//! > with `malloc()`, it is impossible for us to switch to the safe variant like
+//! > [`_aligned_malloc()`](https://learn.microsoft.com/en-us/cpp/c-runtime-library/reference/aligned-malloc)
+//! > (which requires [`_aligned_free()`](https://learn.microsoft.com/en-us/cpp/c-runtime-library/reference/aligned-free)).
+//! >
+//! > On Windows, trying to use `MBox<T>` or `MArray<T>` with `T`'s alignment not equal to 1
+//! > will not compile.
+//! >
+//! > ```rust,compile_fail
+//! > # #[cfg(not(windows))] { _ };
+//! >
+//! > use mbox::MBox;
+//! > let value = MBox::new(1_u64); // will not compile,
+//! > ```
+//!
+//!
+//! ## Installation
+//!
+//! Add this to your Cargo.toml:
+//!
+//! ```toml
+//! [dependencies]
+//! mbox = "0.7"
+//! ```
+//!
+//! ## Usage
 //!
 //! This crate provides three main types, all of which uses the system's `malloc`/`free` as the
 //! allocator.
 //!
-//! * [`MBox<T>`](mbox/struct.MBox.html) — Similar to `Box<T>`.
-//! * [`MString`](sentinel/struct.MString.html) — Similar to `std::ffi::CString`.
-//! * [`MArray<T>`](sentinel/struct.MArray.html) — A null-terminated array, which can be used to
-//!   represent e.g. array of C strings terminated by a null pointer.
+//! * `MBox<T>` — Similar to `Box<T>`.
+//! * `MString` — Similar to `std::ffi::CString`.
+//! * `MArray<T>` — A null-terminated array, which can be used to represent e.g. array of C strings
+//!   terminated by a null pointer.
 //!
-//! # `#![no_std]`
+//! ### `#![no_std]`
 //!
 //! You may compile `mbox` and disable the `std` feature to not link to `std` (it will still link to
 //! `core`.
 //!
 //! ```toml
 //! [dependencies]
-//! mbox = { version = "0.3", default-features = false }
+//! mbox = { version = "0.7", default-features = false }
 //! ```
 //!
 //! When `#![no_std]` is activated, you cannot convert an `MString` into a `std::ffi::CStr`, as the
 //! type simply does not exist 🙂.
 //!
-//! # Migrating from other crates
+//! ### Nightly
+//!
+//! To use nightly-channel features (if you need support for custom dynamic-sized types), enable the
+//! `nightly` feature:
+//!
+//! ```toml
+//! [dependencies]
+//! mbox = { version = "0.7", features = ["nightly"] }
+//! ```
+//!
+//! ## Migrating from other crates
 //!
 //! Note that `MBox` does not support custom allocator. If the type requires custom allocation,
 //! `MBox` cannot serve you.
@@ -82,10 +123,6 @@
     feature(min_specialization, unsize, coerce_unsized)
 )]
 #![cfg_attr(not(feature = "std"), no_std)]
-
-#[cfg(doctest)]
-#[doc = include_str!("../README.md")]
-extern "C" {}
 
 #[cfg(not(feature = "std"))]
 extern crate core as std;

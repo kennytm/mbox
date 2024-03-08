@@ -1,6 +1,5 @@
 `mbox`: `malloc`-based box
 ==========================
-
 [![Crates.io](https://img.shields.io/crates/v/mbox.svg)](https://crates.io/crates/mbox)
 [![docs.rs](https://docs.rs/mbox/badge.svg)](https://docs.rs/mbox)
 [![Build status](https://github.com/kennytm/mbox/workflows/Rust/badge.svg)](https://github.com/kennytm/mbox/actions?query=workflow%3ARust)
@@ -77,18 +76,28 @@ allocator.
 * `MArray<T>` — A null-terminated array, which can be used to represent e.g. array of C strings
   terminated by a null pointer.
 
-## `#![no_std]`
+### `#![no_std]`
 
 You may compile `mbox` and disable the `std` feature to not link to `std` (it will still link to
 `core`.
 
 ```toml
 [dependencies]
-mbox = { version = "0.6", default-features = false }
+mbox = { version = "0.7", default-features = false }
 ```
 
 When `#![no_std]` is activated, you cannot convert an `MString` into a `std::ffi::CStr`, as the
 type simply does not exist 🙂.
+
+### Nightly
+
+To use nightly-channel features (if you need support for custom dynamic-sized types), enable the
+`nightly` feature:
+
+```toml
+[dependencies]
+mbox = { version = "0.7", features = ["nightly"] }
+```
 
 ## Migrating from other crates
 

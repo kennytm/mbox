@@ -18,6 +18,8 @@ jobs:
         run: cargo clippy
       - name: Format
         run: cargo fmt -- --check
+      - name: Crate doc is perfect copy of README.md
+        run: ./verify_readme.sh
       - name: Test
         run: cargo test
       - name: Test (no features)
