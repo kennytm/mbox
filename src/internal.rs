@@ -60,7 +60,9 @@ impl<T: ?Sized + Unsize<U>, U: ?Sized> CoerceUnsized<Unique<U>> for Unique<T> {}
 //{{{ gen_malloc ----------------------------------------------------------------------------------
 
 #[cfg(windows)]
-unsafe fn malloc_aligned(size: usize, _align: usize) -> *mut c_void {
+#[inline(always)]
+unsafe fn malloc_aligned(size: usize, align: usize) -> *mut c_void {
+    assert_eq!(align, 1, "Windows malloc() only support alignment of 1");
     libc::malloc(size)
 }
 

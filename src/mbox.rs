@@ -47,7 +47,7 @@ impl<T: ?Sized + Free> MBox<T> {
     /// # Safety
     ///
     /// The `ptr` must be allocated via `malloc()`, `calloc()` or similar C functions that is
-    /// expected to be deallocated using `free()`. It must not be null. The content of the pointer
+    /// expected to be deallocated using `free()`. It must be aligned and not null. The content of the pointer
     /// must be already initialized. The pointer's ownership is passed into the box, and thus should
     /// not be used after this function returns.
     pub unsafe fn from_raw(ptr: *mut T) -> Self {
@@ -295,6 +295,7 @@ impl<T: Default> Default for MBox<T> {
     }
 }
 
+#[cfg(not(windows))]
 #[test]
 fn test_single_object() {
     let counter = DropCounter::default();
@@ -316,6 +317,7 @@ fn test_into_raw() {
     }
 }
 
+#[cfg(not(windows))]
 #[test]
 fn test_clone() {
     let counter = DropCounter::default();
@@ -331,6 +333,7 @@ fn test_clone() {
     counter.assert_eq(2);
 }
 
+#[cfg(not(windows))]
 #[test]
 fn test_clone_from() {
     let counter = DropCounter::default();
@@ -347,6 +350,7 @@ fn test_clone_from() {
     counter.assert_eq(3);
 }
 
+#[cfg(not(windows))]
 #[test]
 fn test_no_drop_flag() {
     fn do_test_for_drop_flag(branch: bool, expected: usize) {
@@ -375,7 +379,7 @@ fn test_no_drop_flag() {
 #[cfg(feature = "std")]
 #[test]
 fn test_format() {
-    let a = MBox::new(3u64);
+    let a = MBox::new(3u8);
     assert_eq!(format!("{:p}", a), format!("{:p}", MBox::as_ptr(&a)));
     assert_eq!(format!("{}", a), "3");
     assert_eq!(format!("{:?}", a), "3");
@@ -383,22 +387,22 @@ fn test_format() {
 
 #[test]
 fn test_standard_traits() {
-    let mut a = MBox::new(0u64);
+    let mut a = MBox::new(0u8);
     assert_eq!(*a, 0);
     *a = 3;
     assert_eq!(*a, 3);
     assert_eq!(*a.as_ref(), 3);
     assert_eq!(*a.as_mut(), 3);
-    assert_eq!(*(a.borrow() as &u64), 3);
-    assert_eq!(*(a.borrow_mut() as &mut u64), 3);
-    assert!(a == MBox::new(3u64));
-    assert!(a != MBox::new(0u64));
-    assert!(a < MBox::new(4u64));
-    assert!(a > MBox::new(2u64));
-    assert!(a <= MBox::new(4u64));
-    assert!(a >= MBox::new(2u64));
-    assert_eq!(a.cmp(&MBox::new(7u64)), Ordering::Less);
-    assert_eq!(MBox::<u64>::default(), MBox::new(0u64));
+    assert_eq!(*(a.borrow() as &u8), 3);
+    assert_eq!(*(a.borrow_mut() as &mut u8), 3);
+    assert!(a == MBox::new(3u8));
+    assert!(a != MBox::new(0u8));
+    assert!(a < MBox::new(4u8));
+    assert!(a > MBox::new(2u8));
+    assert!(a <= MBox::new(4u8));
+    assert!(a >= MBox::new(2u8));
+    assert_eq!(a.cmp(&MBox::new(7u8)), Ordering::Less);
+    assert_eq!(MBox::<u8>::default(), MBox::new(0u8));
 }
 
 #[test]
@@ -407,6 +411,7 @@ fn test_zero_sized_type() {
     assert!(!MBox::as_ptr(&a).is_null());
 }
 
+#[cfg(not(windows))]
 #[test]
 fn test_non_zero() {
     let b = 0u64;
@@ -420,6 +425,38 @@ fn test_non_zero() {
         size_of::<Option<MBox<&'static u64>>>(),
         size_of::<MBox<&'static u64>>()
     );
+}
+
+#[cfg(not(windows))]
+#[test]
+fn test_aligned() {
+    use std::mem::align_of;
+
+    let b = MBox::new(1u16);
+    assert_eq!(MBox::as_ptr(&b) as usize % align_of::<u16>(), 0);
+
+    let b = MBox::new(1u32);
+    assert_eq!(MBox::as_ptr(&b) as usize % align_of::<u32>(), 0);
+
+    let b = MBox::new(1u64);
+    assert_eq!(MBox::as_ptr(&b) as usize % align_of::<u64>(), 0);
+
+    #[repr(align(4096))]
+    struct A(u8);
+
+    let b = MBox::new(A(2));
+    assert_eq!(MBox::as_ptr(&b) as usize % 4096, 0);
+}
+
+#[cfg(windows)]
+#[test]
+#[should_panic(expected = "Windows malloc() only support alignment of 1")]
+fn test_aligned() {
+    use std::mem::align_of;
+
+    assert_ne!(align_of::<u32>(), 1);
+    let b = MBox::new(1u32);
+    assert_eq!(MBox::as_ptr(&b) as usize % align_of::<u32>(), 0);
 }
 
 //}}}
@@ -563,7 +600,7 @@ impl<T> MBox<[T]> {
     ///
     /// # Safety
     ///
-    /// `ptr` must be allocated via `malloc()` or similar C functions. It must not be null.
+    /// `ptr` must be allocated via `malloc()` or similar C functions. It must be aligned and not null.
     ///
     /// The `malloc`ed size of the pointer must be at least `len * size_of::<T>()`. The content
     /// must already been initialized.
@@ -664,6 +701,7 @@ impl<'a, T> IntoIterator for &'a mut MBox<[T]> {
     }
 }
 
+#[cfg(not(windows))]
 #[test]
 fn test_slice() {
     unsafe {
@@ -687,6 +725,7 @@ fn test_slice() {
     }
 }
 
+#[cfg(not(windows))]
 #[test]
 fn test_slice_with_drops() {
     let counter = DropCounter::default();
@@ -728,6 +767,7 @@ fn test_coerce_unsized() {
 }
 
 #[test]
+#[allow(useless_ptr_null_checks)]
 fn test_empty_slice() {
     let mbox = MBox::<[DropCounter]>::default();
     let sl: &[DropCounter] = &mbox;
@@ -735,7 +775,7 @@ fn test_empty_slice() {
     assert!(!sl.as_ptr().is_null());
 }
 
-#[cfg(nightly_channel)]
+#[cfg(all(nightly_channel, not(windows)))]
 #[test]
 fn test_coerce_from_empty_slice() {
     let pre_box = MBox::<[DropCounter; 0]>::new([]);
@@ -748,6 +788,7 @@ fn test_coerce_from_empty_slice() {
     assert!(!sl.as_ptr().is_null());
 }
 
+#[cfg(not(windows))]
 #[test]
 fn test_clone_slice() {
     let counter = DropCounter::default();
@@ -779,6 +820,7 @@ fn test_clone_slice() {
     counter.assert_eq(6);
 }
 
+#[cfg(not(windows))]
 #[test]
 fn test_from_iterator() {
     let counter = DropCounter::default();
@@ -793,6 +835,7 @@ fn test_from_iterator() {
     counter.assert_eq(19);
 }
 
+#[cfg(not(windows))]
 #[test]
 fn test_into_iterator() {
     let counter = DropCounter::default();
@@ -800,8 +843,8 @@ fn test_into_iterator() {
         let slice = repeat(counter.clone()).take(18).collect::<MBox<[_]>>();
         counter.assert_eq(1);
         assert_eq!(slice.len(), 18);
-        for (i, c) in slice.into_iter().enumerate() {
-            c.assert_eq(1 + i);
+        for (c, i) in slice.into_iter().zip(1..) {
+            c.assert_eq(i);
         }
     }
     counter.assert_eq(19);
@@ -810,7 +853,7 @@ fn test_into_iterator() {
 #[cfg(feature = "std")]
 #[test]
 fn test_iter_properties() {
-    let slice = vec![1, 4, 9, 16, 25].into_iter().collect::<MBox<[_]>>();
+    let slice = vec![1i8, 4, 9, 16, 25].into_iter().collect::<MBox<[_]>>();
     let mut iter = slice.into_iter();
     assert_eq!(iter.size_hint(), (5, Some(5)));
     assert_eq!(iter.len(), 5);
@@ -821,6 +864,7 @@ fn test_iter_properties() {
     assert_eq!(iter.collect::<Vec<_>>(), vec![4, 9, 16]);
 }
 
+#[cfg(not(windows))]
 #[test]
 fn test_iter_drop() {
     let counter = DropCounter::default();
