@@ -18,7 +18,7 @@ use std::str::Utf8Error;
 use crate::internal::gen_malloc;
 use crate::mbox::MBox;
 
-#[cfg(test)]
+#[cfg(all(test, not(windows)))]
 use crate::internal::DropCounter;
 
 /// Implemented for types which has a sentinel value.

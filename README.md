@@ -10,19 +10,6 @@ This crate provides structures that wrap pointers returned from `malloc` as a Bo
 automatically `free` them on drop. These types allow you to interact with pointers and
 null-terminated strings and arrays in a Rusty style.
 
-> Note: this crate does not support Windows.
->
-> Pointers in Rust are required to be aligned to be sound. However, there is no API on
-> Windows that are both compatible with `free()` and supports aligned-malloc.
->
-> Because the primary purpose of this crate is interoperability with C code working
-> with `malloc()`, it is impossible for us to switch to the safe variant like
-> [`_aligned_malloc()`](https://learn.microsoft.com/en-us/cpp/c-runtime-library/reference/aligned-malloc)
-> (which requires [`_aligned_free()`](https://learn.microsoft.com/en-us/cpp/c-runtime-library/reference/aligned-free)).
->
-> On Windows, trying to use `MBox<T>` or `MArray<T>` with `T`'s alignment not equal to 1
-> will panic the program.
-
 ## Examples
 
 ```rust
@@ -50,13 +37,34 @@ fn main() {
 }
 ```
 
+> Note: This crate does not support Windows in general.
+>
+> Pointers in Rust are required to be aligned to be sound. However, there is no API on
+> Windows that are both compatible with `free()` and supports aligned-malloc.
+>
+> Because the primary purpose of this crate is interoperability with C code working
+> with `malloc()`, it is impossible for us to switch to the safe variant like
+> [`_aligned_malloc()`](https://learn.microsoft.com/en-us/cpp/c-runtime-library/reference/aligned-malloc)
+> (which requires [`_aligned_free()`](https://learn.microsoft.com/en-us/cpp/c-runtime-library/reference/aligned-free)).
+>
+> On Windows, trying to use `MBox<T>` or `MArray<T>` with `T`'s alignment not equal to 1
+> will not compile.
+>
+> ```rust,compile_fail
+> # #[cfg(not(windows))] { _ };
+>
+> use mbox::MBox;
+> let value = MBox::new(1_u64); // will not compile,
+> ```
+
+
 ## Installation
 
 Add this to your Cargo.toml:
 
 ```toml
 [dependencies]
-mbox = "0.6"
+mbox = "0.7"
 ```
 
 ## Usage

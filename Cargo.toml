@@ -3,6 +3,7 @@ name = "mbox"
 version = "0.7.0"
 authors = ["kennytm <kennytm@gmail.com>"]
 edition = "2018"
+rust-version = "1.36.0"
 
 license = "MIT"
 keywords = ["malloc", "free", "ffi", "box", "cstr"]

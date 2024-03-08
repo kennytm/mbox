@@ -22,11 +22,13 @@ use std::{
 
 use crate::internal::{gen_free, gen_malloc, gen_realloc, Unique};
 
+#[cfg(all(test, not(windows)))]
+use crate::internal::DropCounter;
 #[cfg(test)]
-use crate::internal::{DropCounter, PanicOnClone};
+use crate::internal::PanicOnClone;
 #[cfg(test)]
 use std::iter::{once, repeat};
-#[cfg(test)]
+#[cfg(all(test, not(windows)))]
 use std::mem::size_of;
 
 #[cfg(feature = "nightly")]
@@ -448,17 +450,6 @@ fn test_aligned() {
     assert_eq!(MBox::as_ptr(&b) as usize % 4096, 0);
 }
 
-#[cfg(windows)]
-#[test]
-#[should_panic(expected = "Windows malloc() only support alignment of 1")]
-fn test_aligned() {
-    use std::mem::align_of;
-
-    assert_ne!(align_of::<u32>(), 1);
-    let b = MBox::new(1u32);
-    assert_eq!(MBox::as_ptr(&b) as usize % align_of::<u32>(), 0);
-}
-
 //}}}
 
 //{{{ Slice helpers -------------------------------------------------------------------------------
@@ -766,6 +757,7 @@ fn test_coerce_unsized() {
     counter.assert_eq(2);
 }
 
+#[cfg(not(windows))]
 #[test]
 #[allow(useless_ptr_null_checks)]
 fn test_empty_slice() {
