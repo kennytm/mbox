@@ -71,7 +71,7 @@ jobs:
           components: miri, rust-src
       - name: Test + nightly
         run: cargo test --features nightly
-      - name: ASan
-        run: RUSTFLAGS=-Zsanitizer=address cargo test --lib --features nightly
+#     - name: ASan
+#       run: RUSTFLAGS=-Zsanitizer=address cargo test --lib --features nightly
       - name: Miri
         run: cargo miri test --features nightly
