@@ -956,6 +956,12 @@ fn test_string_from_bytes() {
 }
 
 #[test]
+fn test_string_with_internal_nul() {
+    let string = MBox::<str>::from("ab\0c");
+    assert_eq!(&*string, "ab\0c");
+}
+
+#[test]
 fn test_non_utf8() {
     let bytes = MBox::from_slice(b"\x88\x88\x88\x88");
     let string = MBox::from_utf8(bytes);

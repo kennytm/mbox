@@ -331,9 +331,9 @@ fn test_string() {
     unsafe {
         let src = gen_malloc::<c_char>(5).as_ptr();
         *src.offset(0) = 0x61;
-        *src.offset(1) = -0x19;
-        *src.offset(2) = -0x6c;
-        *src.offset(3) = -0x4e;
+        *src.offset(1) = -0x19i8 as c_char;
+        *src.offset(2) = -0x6ci8 as c_char;
+        *src.offset(3) = -0x4ei8 as c_char;
         *src.offset(4) = 0;
 
         let string = MString::from_raw_unchecked(src);
@@ -345,7 +345,7 @@ fn test_string() {
 fn test_non_utf8_string() {
     unsafe {
         let src = gen_malloc::<c_char>(2).as_ptr();
-        *src.offset(0) = -1;
+        *src.offset(0) = -1i8 as c_char;
         *src.offset(1) = 0;
 
         let string = MString::from_raw(src);
