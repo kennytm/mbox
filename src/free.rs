@@ -25,12 +25,12 @@ unsafe fn free_ptr_ref<T>(ptr: NonNull<T>) {
 }
 
 impl<T> Free for T {
-    #[cfg(nightly_channel)]
+    #[cfg(feature = "nightly")]
     default unsafe fn free(ptr_ref: NonNull<Self>) {
         free_ptr_ref(ptr_ref);
     }
 
-    #[cfg(stable_channel)]
+    #[cfg(not(feature = "nightly"))]
     unsafe fn free(ptr_ref: NonNull<Self>) {
         free_ptr_ref(ptr_ref);
     }

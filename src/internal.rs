@@ -13,9 +13,9 @@ use self::alloc::alloc::handle_alloc_error;
 #[cfg(feature = "std")]
 use std::alloc::handle_alloc_error;
 
-#[cfg(nightly_channel)]
+#[cfg(feature = "nightly")]
 use std::marker::Unsize;
-#[cfg(nightly_channel)]
+#[cfg(feature = "nightly")]
 use std::ops::CoerceUnsized;
 
 //{{{ Unique --------------------------------------------------------------------------------------
@@ -52,7 +52,7 @@ impl<T: ?Sized> Unique<T> {
     }
 }
 
-#[cfg(nightly_channel)]
+#[cfg(feature = "nightly")]
 impl<T: ?Sized + Unsize<U>, U: ?Sized> CoerceUnsized<Unique<U>> for Unique<T> {}
 
 //}}}
@@ -226,6 +226,7 @@ impl Drop for DropCounter {
 /// A test structure which panics when it is cloned.
 #[cfg(test)]
 #[derive(Default)]
+#[repr(C)] // silence the dead code warning, we don't want a ZST here to complicate things.
 pub struct PanicOnClone(u8);
 
 #[cfg(test)]

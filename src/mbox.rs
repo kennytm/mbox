@@ -29,9 +29,9 @@ use std::iter::{once, repeat};
 #[cfg(test)]
 use std::mem::size_of;
 
-#[cfg(nightly_channel)]
+#[cfg(feature = "nightly")]
 use std::marker::Unsize;
-#[cfg(nightly_channel)]
+#[cfg(feature = "nightly")]
 use std::ops::CoerceUnsized;
 
 use crate::free::Free;
@@ -142,7 +142,7 @@ impl<T: ?Sized + Free> BorrowMut<T> for MBox<T> {
     }
 }
 
-#[cfg(nightly_channel)]
+#[cfg(feature = "nightly")]
 impl<T: ?Sized + Free + Unsize<U>, U: ?Sized + Free> CoerceUnsized<MBox<U>> for MBox<T> {}
 
 impl<T: ?Sized + Free> Pointer for MBox<T> {
@@ -441,7 +441,7 @@ fn test_aligned() {
     let b = MBox::new(1u64);
     assert_eq!(MBox::as_ptr(&b) as usize % align_of::<u64>(), 0);
 
-    #[repr(align(4096))]
+    #[repr(C, align(4096))]
     struct A(u8);
 
     let b = MBox::new(A(2));
@@ -746,7 +746,7 @@ fn test_slice_with_drops() {
     counter.assert_eq(3);
 }
 
-#[cfg(nightly_channel)]
+#[cfg(feature = "nightly")]
 #[test]
 fn test_coerce_unsized() {
     let counter = DropCounter::default();
@@ -775,8 +775,9 @@ fn test_empty_slice() {
     assert!(!sl.as_ptr().is_null());
 }
 
-#[cfg(all(nightly_channel, not(windows)))]
+#[cfg(all(feature = "nightly", not(windows)))]
 #[test]
+#[allow(useless_ptr_null_checks)]
 fn test_coerce_from_empty_slice() {
     let pre_box = MBox::<[DropCounter; 0]>::new([]);
     assert_eq!(pre_box.len(), 0);

@@ -77,7 +77,10 @@
 //! * [`malloc-array`](https://crates.io/crates/malloc-array) — `HeapArray<T>` is similar to
 //!   `MBox<T>`, but this crate focuses more on raw memory management.
 
-#![cfg_attr(nightly_channel, feature(min_specialization, unsize, coerce_unsized))]
+#![cfg_attr(
+    feature = "nightly",
+    feature(min_specialization, unsize, coerce_unsized)
+)]
 #![cfg_attr(not(feature = "std"), no_std)]
 
 #[cfg(doctest)]
