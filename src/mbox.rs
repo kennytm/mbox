@@ -13,8 +13,8 @@ use std::mem::{forget, MaybeUninit};
 use std::ops::{Deref, DerefMut};
 use std::pin::Pin;
 use std::ptr::{copy_nonoverlapping, drop_in_place, read, write};
-use std::slice::{from_raw_parts, from_raw_parts_mut, Iter, IterMut};
-use std::str::{from_utf8, from_utf8_unchecked, Utf8Error};
+use std::slice::{Iter, IterMut};
+use std::str::{from_utf8, Utf8Error};
 use std::{
     borrow::{Borrow, BorrowMut},
     ptr::NonNull,
@@ -52,6 +52,10 @@ impl<T: ?Sized + Free> MBox<T> {
     /// expected to be deallocated using `free()`. It must be aligned and not null. The content of the pointer
     /// must be already initialized. The pointer's ownership is passed into the box, and thus should
     /// not be used after this function returns.
+    ///
+    /// Note that even when `T` is zero-sized, the input `ptr` is *still* expected to be released using
+    /// `free()`. Therefore, you must not use a conceived dangling pointer such as `NonNull::dangling()`
+    /// here. Consider using `malloc(1)` in case of ZSTs.
     pub unsafe fn from_raw(ptr: *mut T) -> Self {
         Self::from_non_null_raw(NonNull::new_unchecked(ptr))
     }
@@ -64,6 +68,10 @@ impl<T: ?Sized + Free> MBox<T> {
     /// expected to be deallocated using `free()`. The content of the pointer must be already
     /// initialized. The pointer's ownership is passed into the box, and thus should not be used
     /// after this function returns.
+    ///
+    /// Note that even when `T` is zero-sized, the input `ptr` is *still* expected to be released using
+    /// `free()`. Therefore, you must not use a conceived dangling pointer such as `NonNull::dangling()`
+    /// here. Consider using `malloc(1)` in case of ZSTs.
     pub unsafe fn from_non_null_raw(ptr: NonNull<T>) -> Self {
         Self(Unique::new(ptr))
     }
@@ -475,21 +483,22 @@ mod slice_helper {
         }
 
         pub fn push(&mut self, obj: T) {
-            // SAFETY:
-            //  - self.ptr is initialized from gen_malloc() so it can be placed into gen_realloc()
-            //  - we guarantee that `self.ptr `points to an array of nonzero length `self.cap`, and
-            //    the `if` condition ensures the invariant `self.len < self.cap`, so
-            //    `self.ptr.add(self.len)` is always a valid (but uninitialized) object.
-            //  - since `self.ptr[self.len]` is not yet initialized, we can `write()` into it safely.
-            unsafe {
-                if self.len >= self.cap {
-                    if self.cap == 0 {
-                        self.cap = 1;
-                    } else {
-                        self.cap *= 2;
-                    }
-                    self.ptr = gen_realloc(self.ptr, self.cap);
+            if self.len >= self.cap {
+                let new_cap = (self.cap * 2).max(1);
+                // SAFETY:
+                //  - ptr is initialized from gen_malloc() so it can be placed into gen_realloc()
+                unsafe {
+                    self.ptr = gen_realloc(self.ptr, self.cap, new_cap);
                 }
+                self.cap = new_cap;
+            }
+
+            // SAFETY:
+            //  - we guarantee that `ptr `points to an array of nonzero length `cap`, and
+            //    the `if` condition ensures the invariant `self.len < cap`, so
+            //    `ptr.add(self.len)` is always a valid (but uninitialized) object.
+            //  - since `ptr[self.len]` is not yet initialized, we can `write()` into it safely.
+            unsafe {
                 write(self.ptr.as_ptr().add(self.len), obj);
             }
             self.len += 1;
@@ -514,14 +523,53 @@ mod slice_helper {
 
     impl<T> Drop for MSliceBuilder<T> {
         fn drop(&mut self) {
+            // SAFETY: `ptr` has been allocated by `gen_malloc()`.
             unsafe {
                 gen_free(self.ptr);
             }
         }
     }
+
+    #[repr(C)]
+    struct SliceParts<T> {
+        ptr: *mut T,
+        len: usize,
+    }
+
+    impl<T> Clone for SliceParts<T> {
+        fn clone(&self) -> Self {
+            Self {
+                ptr: self.ptr,
+                len: self.len,
+            }
+        }
+    }
+    impl<T> Copy for SliceParts<T> {}
+
+    #[repr(C)]
+    union SliceTransformer<T> {
+        fat_ptr: *mut [T],
+        parts: SliceParts<T>,
+    }
+
+    // TODO: maybe upgrade Rust to 1.42 to get rid of this function.
+    pub fn slice_from_raw_parts_mut<T>(ptr: *mut T, len: usize) -> *mut [T] {
+        // SAFETY: just the same code of the function from std.
+        unsafe {
+            SliceTransformer {
+                parts: SliceParts { ptr, len },
+            }
+            .fat_ptr
+        }
+    }
+
+    pub fn slice_into_raw_parts_mut<T>(fat_ptr: *mut [T]) -> (*mut T, usize) {
+        let parts = unsafe { SliceTransformer { fat_ptr }.parts };
+        (parts.ptr, parts.len)
+    }
 }
 
-use self::slice_helper::MSliceBuilder;
+use self::slice_helper::{slice_from_raw_parts_mut, slice_into_raw_parts_mut, MSliceBuilder};
 
 /// The iterator returned from `MBox<[T]>::into_iter()`.
 pub struct MSliceIntoIter<T> {
@@ -575,7 +623,7 @@ impl<T> Drop for MSliceIntoIter<T> {
         unsafe {
             let base = self.ptr.as_ptr().add(self.begin);
             let len = self.end - self.begin;
-            let slice = from_raw_parts_mut(base, len) as *mut [T];
+            let slice = slice_from_raw_parts_mut(base, len);
             drop_in_place(slice);
             gen_free(self.ptr);
         }
@@ -596,8 +644,7 @@ impl<T> MBox<[T]> {
     /// The `malloc`ed size of the pointer must be at least `len * size_of::<T>()`. The content
     /// must already been initialized.
     pub unsafe fn from_raw_parts(ptr: *mut T, len: usize) -> Self {
-        let ptr = from_raw_parts_mut(ptr, len) as *mut [T];
-        Self::from_raw(ptr)
+        Self::from_raw(slice_from_raw_parts_mut(ptr, len))
     }
 
     /// Constructs a new boxed slice with uninitialized contents.
@@ -609,8 +656,7 @@ impl<T> MBox<[T]> {
 
     /// Decomposes the boxed slice into a pointer to the first element and the slice length.
     pub fn into_raw_parts(mut self) -> (*mut T, usize) {
-        let len = self.len();
-        let ptr = self.as_mut_ptr();
+        let (ptr, len) = slice_into_raw_parts_mut(Self::as_mut_ptr(&mut self));
         forget(self);
         (ptr, len)
     }
@@ -828,6 +874,24 @@ fn test_from_iterator() {
     counter.assert_eq(19);
 }
 
+#[test]
+fn test_from_iterator_with_no_size_hint() {
+    struct RedactSizeHint<I>(I);
+
+    impl<I: Iterator> Iterator for RedactSizeHint<I> {
+        type Item = I::Item;
+
+        fn next(&mut self) -> Option<Self::Item> {
+            self.0.next()
+        }
+    }
+
+    let it = RedactSizeHint(b"1234567890".iter().copied());
+    assert_eq!(it.size_hint(), (0, None));
+    let slice = it.collect::<MBox<[u8]>>();
+    assert_eq!(&*slice, b"1234567890");
+}
+
 #[cfg(not(windows))]
 #[test]
 fn test_into_iterator() {
@@ -917,9 +981,7 @@ impl MBox<str> {
     /// The `malloc`ed size of the pointer must be at least `len`. The content must already been
     /// initialized and be valid UTF-8.
     pub unsafe fn from_raw_utf8_parts_unchecked(value: *mut u8, len: usize) -> MBox<str> {
-        let bytes = from_raw_parts(value, len);
-        let string = from_utf8_unchecked(bytes) as *const str as *mut str;
-        Self::from_raw(string)
+        Self::from_utf8_unchecked(MBox::from_raw_parts(value, len))
     }
 
     /// Constructs a new malloc-backed string from the pointer and the length (number of UTF-8 code
@@ -928,10 +990,9 @@ impl MBox<str> {
     /// # Safety
     ///
     /// The `malloc`ed size of the pointer must be at least `len`.
+    /// The content must already been initialized.
     pub unsafe fn from_raw_utf8_parts(value: *mut u8, len: usize) -> Result<MBox<str>, Utf8Error> {
-        let bytes = from_raw_parts(value, len);
-        let string = from_utf8(bytes)? as *const str as *mut str;
-        Ok(Self::from_raw(string))
+        Self::from_utf8(MBox::from_raw_parts(value, len))
     }
 
     /// Converts the string into raw bytes.
@@ -951,10 +1012,8 @@ impl MBox<str> {
     /// Creates a string from raw bytes. If the content does not contain valid UTF-8, this method
     /// returns an `Err`.
     pub fn from_utf8(bytes: MBox<[u8]>) -> Result<MBox<str>, Utf8Error> {
-        unsafe {
-            let (ptr, len) = bytes.into_raw_parts();
-            Self::from_raw_utf8_parts(ptr, len)
-        }
+        from_utf8(&bytes)?;
+        unsafe { Ok(Self::from_utf8_unchecked(bytes)) }
     }
 }
 
@@ -974,8 +1033,10 @@ impl From<&str> for MBox<str> {
     /// Creates a new `malloc`-boxed string by cloning the content of an existing string slice.
     fn from(string: &str) -> Self {
         let len = string.len();
+        let new_slice = gen_malloc(len).as_ptr();
+        // SAFETY: `new_slice` is not null, allocated with size fitting `string`,
+        // and also `string` is guaranteed to be UTF-8.
         unsafe {
-            let new_slice = gen_malloc(len).as_ptr();
             copy_nonoverlapping(string.as_ptr(), new_slice, len);
             Self::from_raw_utf8_parts_unchecked(new_slice, len)
         }

@@ -6,7 +6,7 @@ use libc::c_void;
 use std::alloc::Layout;
 use std::marker::PhantomData;
 use std::mem::{align_of, size_of};
-use std::ptr::NonNull;
+use std::ptr::{copy_nonoverlapping, NonNull};
 
 #[cfg(not(feature = "std"))]
 use self::alloc::alloc::handle_alloc_error;
@@ -64,7 +64,7 @@ unsafe fn malloc_aligned<T>(size: usize) -> *mut c_void {
     struct AlignmentChecker<T>(PhantomData<T>);
     impl<T> AlignmentChecker<T> {
         // Ensure in compile-time that the alignment of T is 1.
-        // If the alignment is > , the subtraction here will overflow to stop compilation.
+        // If the alignment is >1, the subtraction here will overflow to stop compilation.
         // (This hack is needed for targeting Rust 1.36.)
         const ENSURE_ALIGNMENT_IS_1: usize = 1 - align_of::<T>();
     }
@@ -93,23 +93,26 @@ unsafe fn malloc_aligned<T>(size: usize) -> *mut c_void {
 }
 
 /// Generic malloc function.
+///
+/// This function allocates memory capable of storing the array `[T; count]`.
+/// The memory content will not be initialized.
+///
+/// If `T` is zero-sized or `count == 0`, we will call `malloc(0)` which the C
+/// standard permits returning NULL. In that case, we will *allocate at least 1
+/// byte* to respect the `NonNull` constraint (we cannot use `NonNull::danging()`
+/// because we allow the result to be passed directly to C's `free()`).
 pub fn gen_malloc<T>(count: usize) -> NonNull<T> {
-    if size_of::<T>() == 0 || count == 0 {
-        NonNull::dangling()
-    } else {
-        let requested_size = count.checked_mul(size_of::<T>()).expect("memory overflow");
-        // SAFETY:
-        //  - allocating should be safe, duh.
-        //  - in the rare case allocation failed, we throw an allocation error, so when we reach
-        //    NonNull::new_unchecked we can be sure the result is not null.
-        unsafe {
-            let res = malloc_aligned::<T>(requested_size) as *mut T;
-            if res.is_null() {
-                handle_alloc_error(Layout::new::<T>());
-            }
-            NonNull::new_unchecked(res)
+    let requested_size = count.checked_mul(size_of::<T>()).expect("memory overflow");
+
+    let mut res;
+    // SAFETY: allocating should be safe, duh.
+    unsafe {
+        res = malloc_aligned::<T>(requested_size);
+        if res.is_null() && requested_size == 0 {
+            res = malloc_aligned::<T>(align_of::<T>());
         }
     }
+    NonNull::new(res as *mut T).unwrap_or_else(|| handle_alloc_error(Layout::new::<T>()))
 }
 
 /// Generic free function.
@@ -117,34 +120,52 @@ pub fn gen_malloc<T>(count: usize) -> NonNull<T> {
 /// # Safety
 ///
 /// The `ptr` must be obtained from `malloc()` or similar C functions.
+/// The memory content will not be dropped.
 pub unsafe fn gen_free<T>(ptr: NonNull<T>) {
-    if ptr != NonNull::dangling() {
-        libc::free(ptr.as_ptr() as *mut c_void);
-    }
+    libc::free(ptr.as_ptr() as *mut c_void);
 }
 
 /// Generic realloc function.
 ///
+/// Unlike C's `realloc()`, calling `gen_realloc(ptr, x, 0)` is not equivalent
+/// to `gen_free(ptr)`. Rather, it will return a properly-aligned and allocated
+/// pointer to satisfy the `NonNull` constraint.
+///
 /// # Safety
 ///
 /// The `ptr` must be obtained from `malloc()` or similar C functions.
-pub unsafe fn gen_realloc<T>(ptr: NonNull<T>, new_count: usize) -> NonNull<T> {
+pub unsafe fn gen_realloc<T>(ptr: NonNull<T>, old_count: usize, new_count: usize) -> NonNull<T> {
     if size_of::<T>() == 0 {
-        ptr
-    } else if new_count == 0 {
-        gen_free(ptr);
-        NonNull::dangling()
-    } else if ptr == NonNull::dangling() {
-        gen_malloc(new_count)
-    } else {
-        if let Some(requested_size) = new_count.checked_mul(size_of::<T>()) {
-            let res = libc::realloc(ptr.as_ptr() as *mut c_void, requested_size);
-            if !res.is_null() {
-                return NonNull::new_unchecked(res as *mut T);
-            }
-        }
-        handle_alloc_error(Layout::new::<T>());
+        return ptr;
     }
+
+    (|| {
+        // ensure `requested_size > 0` to avoid `realloc()` returning a successful NULL.
+        let requested_size = new_count.checked_mul(size_of::<T>())?.max(align_of::<T>());
+        let mut res = libc::realloc(ptr.as_ptr() as *mut c_void, requested_size);
+        if res.is_null() {
+            return None;
+        }
+
+        // Most system don't provide an `aligned_realloc`.
+        // If `libc::realloc()` does not give us an aligned pointer,
+        // we have to perform an additional aligned allocation and memcpy over.
+        if res as usize % align_of::<T>() != 0 {
+            let actual_res = malloc_aligned::<T>(requested_size);
+            if actual_res.is_null() {
+                return None;
+            }
+
+            // no need to do checked_mul() here since it must be <= `requested_size`.
+            let copy_len = old_count.min(new_count) * size_of::<T>();
+            copy_nonoverlapping(res, actual_res, copy_len);
+            libc::free(res);
+            res = actual_res;
+        }
+
+        NonNull::new(res as *mut T)
+    })()
+    .unwrap_or_else(|| handle_alloc_error(Layout::new::<T>()))
 }
 
 //}}}
@@ -166,9 +187,9 @@ pub(crate) struct SharedCounter {
 #[cfg(all(test, not(windows), not(feature = "std")))]
 impl Default for SharedCounter {
     fn default() -> Self {
+        let counter = gen_malloc(1);
         // SAFETY: malloc() returns an uninitialized integer which is then filled in.
         unsafe {
-            let counter = gen_malloc(1);
             std::ptr::write(counter.as_ptr(), 0);
             Self { counter }
         }

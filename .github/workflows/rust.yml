@@ -56,6 +56,22 @@ jobs:
         run: cargo test
       - name: Test (no-std)
         run: cargo test --no-default-features
-      - name: Test (nightly)
+
+  nightly-test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions-rs/toolchain@v1
+        name: Install Rust
+        with:
+          toolchain: nightly
+          profile: minimal
+          default: true
+          components: miri, rust-src
+      - name: Test + nightly
         run: cargo test --features nightly
-        if: ${{ matrix.platform.rust == 'nightly' }}
+      - name: ASan
+        run: RUSTFLAGS=-Zsanitizer=address cargo test --lib --features nightly
+      - name: Miri
+        run: cargo miri test --features nightly
