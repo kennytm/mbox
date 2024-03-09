@@ -41,6 +41,10 @@ use crate::free::Free;
 //{{{ Basic structure -----------------------------------------------------------------------------
 
 /// A malloc-backed box. This structure allows Rust to exchange objects with C without cloning.
+///
+/// This is a `#[repr(transparent)]` wrapper over `NonNull<T>`, so the null pointer optimization
+/// `Option<MBox<T>>` is guaranteed.
+#[repr(transparent)]
 pub struct MBox<T: ?Sized + Free>(Unique<T>);
 
 impl<T: ?Sized + Free> MBox<T> {
@@ -197,6 +201,13 @@ impl<T: ?Sized + Free + Ord> Ord for MBox<T> {
     fn cmp(&self, other: &Self) -> Ordering {
         self.deref().cmp(other.deref())
     }
+}
+
+#[test]
+fn test_repr_transparent() {
+    assert_eq!(size_of::<Option<MBox<u8>>>(), size_of::<MBox<u8>>());
+    assert_eq!(size_of::<MBox<u8>>(), size_of::<&u8>());
+    assert_eq!(size_of::<Option<MBox<[u8]>>>(), size_of::<&[u8]>());
 }
 
 //}}}

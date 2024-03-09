@@ -20,7 +20,8 @@ use std::ops::CoerceUnsized;
 
 //{{{ Unique --------------------------------------------------------------------------------------
 
-/// Same as `std::ptr::Unique`, but provides a close-enough representation on stable channel.
+/// Same as `core::ptr::Unique`, but provides a close-enough representation on stable channel.
+#[repr(transparent)]
 pub struct Unique<T: ?Sized> {
     pointer: NonNull<T>,
     marker: PhantomData<T>,

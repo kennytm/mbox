@@ -50,10 +50,12 @@ macro_rules! impl_zero_for_sentinel {
 impl_zero_for_sentinel!(u8 i8 u16 i16 u32 i32 u64 i64 u128 i128 usize isize);
 
 /// A `malloc`-backed array with an explicit sentinel at the end.
+#[repr(transparent)]
 #[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Debug)]
 pub struct MArray<T: Sentinel>(MBox<[T]>);
 
 /// A `malloc`-backed null-terminated string (similar to `CString`).
+#[repr(transparent)]
 #[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Debug)]
 pub struct MString(MBox<str>);
 
